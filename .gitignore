@@ -1,0 +1,26 @@
+pcb-defect-dataset/
+
+# Local training workspace: excluded from the shared inference system
+/src/
+/notebooks/
+/configs/
+/runs/
+/YOLOv8/
+/weights/
+/requirements.txt
+/run_*.py
+/baseline_train*.log
+*.pt
+*.pth
+*.onnx
+*.engine
+
+# Local caches and runtime artifacts
+/.cache/
+__pycache__/
+*.pyc
+.pytest_cache/
+.venv/
+node_modules/
+dist/
+*.tsbuildinfo
