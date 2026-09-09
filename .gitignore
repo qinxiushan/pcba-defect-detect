@@ -1,0 +1,27 @@
+# Python environments and caches
+.venv/
+venv/
+__pycache__/
+*.py[cod]
+.pytest_cache/
+.mypy_cache/
+
+# Ultralytics outputs and model weights
+runs/
+*.pt
+*.onnx
+*.engine
+*.torchscript
+*.safetensors
+
+# Local dataset images and labels; keep the dataset configuration tracked
+pcb-defect-dataset/train/
+pcb-defect-dataset/val/
+pcb-defect-dataset/test/
+!pcb-defect-dataset/data.yaml
+
+# Local editor and OS files
+.vscode/settings.json
+.idea/
+.DS_Store
+Thumbs.db
