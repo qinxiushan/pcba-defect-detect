@@ -1,4 +1,5 @@
 [
+  {"id":"member-yolov11","name":"我的模型 · YOLOv11n（GPU）","version":"yolov11n-20260908","author":"AIRJUICE","description":"YOLOv11n PCB 六类缺陷检测，100 epochs，val mAP50=0.992 / mAP50-95=0.667，GPU 推理。类名与系统六类一致，无需 class_map。","adapter":"yolo","device":"0","weights":"weights/member-yolov11n-20260908.pt"},
   {"id":"pcb-yolov8s-baseline","name":"PCB YOLOv8s · 真实模型","version":"baseline-20260908","author":"团队","description":"已完成 30 轮训练的 PCB 六类缺陷检测基线，使用固定权重副本进行 CPU 真实推理。","adapter":"yolo","device":"cpu","weights":"weights/pcb-yolov8s-baseline-20260908.pt"},
   {"id":"demo-a","name":"演示模型 A","version":"demo-1.0","author":"系统演示","description":"固定算法生成模拟框，仅用于验证系统流程。","adapter":"mock","seed":1},
   {"id":"demo-b","name":"演示模型 B","version":"demo-1.0","author":"系统演示","description":"另一组可重复的模拟结果，用于多模型对比。","adapter":"mock","seed":9}
