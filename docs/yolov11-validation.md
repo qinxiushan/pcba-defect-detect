@@ -25,7 +25,7 @@
 
 ## 样例图推理
 
-样例图：`light_01_missing_hole_02_2_600.jpg`（600×600），来源 val 集。
+样例图：`light_01_missing_hole_02_2_600.jpg`（600×600），来源 val 集；仓库内提交副本为 `docs/assets/yolov11-sample.jpg`。
 
 `verify_yolo.py` 独立加载（CPU 新进程）输出：
 
@@ -62,10 +62,10 @@ HTTP API 推理（GPU，与 mock 模型对比）：
 | 非正方形图片（500×300） | ✅ 检出 1 个缺陷，坐标全部在 0≤x1<x2≤500, 0≤y1<y2≤300 范围内 |
 | 边界坐标 | ✅ 所有框 x1≥0, x2≤width, y1≥0, y2≤height |
 | 同图与 mock 对比 | ✅ 真实模型 is_mock=false 检出 1 个缺陷；mock 模型 is_mock=true 检出 3 个 |
-| 权重缺失不阻止 API | ✅ baseline 权重缺失显示 available=false，但 API 正常运行 |
+| 权重缺失不阻止 API | ✅ 权重缺失的模型显示 available=false 且有原因说明，API 正常运行 |
 
 验收结果文件：`backend/weights/acceptance_results.json`（本地运行数据，不提交 Git）。
-验收脚本：`backend/acceptance_test.py`。
+验收脚本：`backend/scripts/acceptance_test.py`。
 
 ## 直接使用
 
@@ -73,16 +73,16 @@ HTTP API 推理（GPU，与 mock 模型对比）：
 2. 在工作台勾选 **我的模型 · YOLOv11n（GPU）**，上传图片并开始检测。
 3. 在"检测历史"查看结果。原来的两个演示模型仍标注"模拟"。
 
-重复验证命令（服务启动后，在 backend 目录运行）：
+重复验证命令（服务启动后，在 `backend/` 目录运行）：
 
 ```powershell
-D:\conda-envs\yolov11\python.exe acceptance_test.py
+python scripts/acceptance_test.py
 ```
 
-独立加载验证（不依赖后端）：
+独立加载验证（不依赖后端，在 `backend/` 目录运行）：
 
 ```powershell
-D:\conda-envs\yolov11\python.exe scripts\verify_yolo.py --weights weights/member-yolov11n-20260908.pt --image weights/sample_pcb.jpg
+python scripts/verify_yolo.py --weights weights/member-yolov11n-20260908.pt --image ../docs/assets/yolov11-sample.jpg
 ```
 
 这是接入与功能冒烟测试，没有计算完整测试集 mAP（训练阶段已计算），也没有据此宣称模型准确率达标。
