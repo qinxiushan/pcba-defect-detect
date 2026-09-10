@@ -1,5 +1,6 @@
 [
   {"id":"pcb-yolov8s-baseline","name":"PCB YOLOv8s · 真实模型","version":"baseline-20260908","author":"团队","description":"已完成 30 轮训练的 PCB 六类缺陷检测基线，使用固定权重副本进行 CPU 真实推理。","adapter":"yolo","device":"cpu","weights":"weights/pcb-yolov8s-baseline-20260908.pt"},
+  {"id":"pcb-yolov12n-clean","name":"PCB YOLOv12n · 按板划分模型","version":"clean-20260910","author":"同学D","description":"YOLOv12n 在去增强+按板子分组划分的数据集上训练77轮，test集(未见过的light_12板) mAP50=0.9723、mAP50-95=0.5039。","adapter":"yolo","device":"cpu","weights":"weights/pcb-yolov12n-clean-20260910.pt"},
   {"id":"demo-a","name":"演示模型 A","version":"demo-1.0","author":"系统演示","description":"固定算法生成模拟框，仅用于验证系统流程。","adapter":"mock","seed":1},
   {"id":"demo-b","name":"演示模型 B","version":"demo-1.0","author":"系统演示","description":"另一组可重复的模拟结果，用于多模型对比。","adapter":"mock","seed":9}
 ]
