@@ -1,4 +1,13 @@
 {
+  "member-yolov11": {
+    "version": "yolov11n-20260908",
+    "file": "weights/member-yolov11n-20260908.pt",
+    "source": "../runs/pcb_defects_yolo11n-2/weights/best.pt",
+    "sha256": "8975896f33816824a6ba56b3618275a05f946a46cf9ee4570dd5285b69413659",
+    "size_bytes": 5559392,
+    "training_epochs_completed": 100,
+    "note": "YOLOv11n PCB six-class defect detection. Weights are not tracked by Git; distribute the matching file separately."
+  },
   "pcb-yolov8s-baseline": {
     "version": "baseline-20260908",
     "file": "weights/pcb-yolov8s-baseline-20260908.pt",
