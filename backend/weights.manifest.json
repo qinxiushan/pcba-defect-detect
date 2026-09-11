@@ -1,0 +1,11 @@
+{
+  "pcb-yolov8s-baseline": {
+    "version": "baseline-20260908",
+    "file": "weights/pcb-yolov8s-baseline-20260908.pt",
+    "source": "../runs/detect/runs/exp0_baseline/weights/best.pt",
+    "sha256": "3a504ab9cd23bbf53b20d34f138b960b563e52f2f512b1f8918bab4bf5a40381",
+    "size_bytes": 22514979,
+    "training_epochs_completed": 30,
+    "note": "Fixed local copy for inference. Weights are not tracked by Git; distribute the matching file separately."
+  }
+}

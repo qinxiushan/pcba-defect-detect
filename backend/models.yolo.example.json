@@ -1,0 +1,4 @@
+[
+  {"id":"demo-a","name":"演示模型 A","version":"demo-1.0","adapter":"mock","seed":1},
+  {"id":"pcb-yolov8s-baseline","name":"PCB YOLOv8s · 真实模型","version":"baseline-20260908","author":"团队","description":"已完成 30 轮训练的固定 PCB 权重副本。","adapter":"yolo","device":"cpu","weights":"weights/pcb-yolov8s-baseline-20260908.pt"}
+]

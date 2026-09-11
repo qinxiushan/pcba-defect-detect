@@ -8,32 +8,39 @@ __pycache__/
 .ruff_cache/
 .coverage
 htmlcov/
+.cache/
+pip-wheel-metadata/
 
-# Local environment and experiment configuration
+# Local configuration, logs and experiment outputs
 .env
 .env.*
 *.log
 *.csv
 *.yaml.bak
-pip-wheel-metadata/
-
-# Ultralytics outputs and model weights
 runs/
 wandb/
 mlruns/
+
+# Model weights and exported artifacts
 *.pt
+*.pth
 *.onnx
 *.engine
 *.torchscript
 *.safetensors
 
-# Local dataset images and labels; keep the dataset configuration tracked
+# Local datasets; keep the shared data configuration tracked
 pcb-defect-dataset/train/
 pcb-defect-dataset/val/
 pcb-defect-dataset/test/
 !pcb-defect-dataset/data.yaml
+backend/data/
+backend/weights/
 
-# Local editor and OS files
+# Frontend and local tooling
+node_modules/
+dist/
+*.tsbuildinfo
 .vscode/settings.json
 .idea/
 .DS_Store
