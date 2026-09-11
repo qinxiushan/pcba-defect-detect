@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { Alert, App as AntApp, Button, Card, Checkbox, Empty, Progress, Select, Slider, Space, Spin, Switch, Table, Tag, Upload, Popconfirm } from 'antd'
 import { AppstoreOutlined, ArrowRightOutlined, CheckCircleOutlined, CloudUploadOutlined, DownloadOutlined, ExperimentOutlined, HistoryOutlined, ScanOutlined } from '@ant-design/icons'
-import { api, colors, exportUrl, labels, statusLabels, terminal } from './api'
+import { api, analyze, colors, exportUrl, labels, statusLabels, terminal } from './api'
 import type { Job, Model, Result, UploadedImage } from './api'
 
 function ImageCanvas({image, result, showBoxes = true}: {image: UploadedImage; result?: Result; showBoxes?: boolean}) {
@@ -19,6 +19,19 @@ function ImageCanvas({image, result, showBoxes = true}: {image: UploadedImage; r
 
 function ResultCard({job, result, showBoxes}: {job: Job; result: Result; showBoxes: boolean}) {
   const done = result.status === 'succeeded'
+  const [analysis, setAnalysis] = useState<string | null>(null)
+  const [analyzing, setAnalyzing] = useState(false)
+  const {message} = AntApp.useApp()
+  const runAnalysis = async () => {
+    setAnalyzing(true)
+    try {
+      const res = await analyze(job.image.id, result.detections)
+      if (res.error) { message.error(res.error); setAnalysis(res.analysis || null) }
+      else if (!res.enabled) { message.warning(res.message || 'AI 分析不可用'); setAnalysis(null) }
+      else setAnalysis(res.analysis)
+    } catch (e) { message.error((e as Error).message) }
+    finally { setAnalyzing(false) }
+  }
   return <Card className="result-card" title={<Space>{result.model.name}{result.is_mock && <Tag color="gold">模拟结果</Tag>}</Space>} extra={<Tag color={done ? 'green' : result.status==='failed' ? 'red' : 'blue'}>{statusLabels[result.status]}</Tag>}>
     <div className="result-meta"><span>{result.model.version} · {result.model.device.toUpperCase()}</span><span>{result.model.author}</span></div>
     <ImageCanvas image={job.image} result={result} showBoxes={showBoxes}/>
@@ -32,6 +45,8 @@ function ResultCard({job, result, showBoxes}: {job: Job; result: Result; showBox
         {title:'坐标 (xyxy)', dataIndex:'bbox_xyxy', render:(box:number[]) => <span className="coordinates">{box.map(Math.round).join(', ')}</span>},
       ]}/>}
       <Button className="export-button" icon={<DownloadOutlined/>} href={exportUrl(job.id,result.model.id)} disabled={!terminal(job.status)}>下载带框图片</Button>
+      {!result.is_mock && <Button className="analyze-button" icon={<ExperimentOutlined/>} loading={analyzing} onClick={runAnalysis}>AI 分析缺陷</Button>}
+      {analysis && <div className="ai-analysis"><h4>AI 分析结果</h4><p style={{whiteSpace:'pre-wrap'}}>{analysis}</p></div>}
     </>}
   </Card>
 }

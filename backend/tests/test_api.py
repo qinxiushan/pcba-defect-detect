@@ -214,3 +214,49 @@ def test_failed_load_cleanup_does_not_import_torch(monkeypatch):
     monkeypatch.setattr(builtins, '__import__', guarded_import)
     adapter = YoloAdapter(ModelConfig(id='cleanup', name='Cleanup', version='1', adapter='yolo'))
     adapter.unload()
+
+
+def test_analysis_optional_and_request_contract(tmp_path, config, monkeypatch):
+    monkeypatch.delenv('QWEN_API_KEY', raising=False)
+    app = create_app(tmp_path/'data', config)
+    with TestClient(app) as client:
+        image = upload(client)
+        response = client.post('/api/v1/analyze', json={'image_id': image['id']})
+        assert response.status_code == 200
+        assert response.json()['enabled'] is False
+        assert client.get('/api/v1/health').json()['worker_alive']
+        assert client.post('/api/v1/analyze', json={'image_id': 'missing'}).status_code == 404
+        detection = dict(class_id=0, class_name='mouse_bite', confidence=.9, bbox_xyxy=[1, 2, 3, 4])
+        assert client.post('/api/v1/analyze', json={
+            'image_id': image['id'], 'detections': [detection] * 201,
+        }).status_code == 422
+        def analyze(image, detections):
+            assert image.size == (120, 80)
+            assert detections[0]['class_name'] == 'mouse_bite'
+            return {'enabled': True, 'analysis': 'test analysis'}
+        monkeypatch.setattr(app.state.analyzer, 'analyze', analyze)
+        response = client.post('/api/v1/analyze', json={'image_id': image['id'], 'detections': [detection]})
+        assert response.json()['analysis'] == 'test analysis'
+        schema = client.get('/openapi.json').json()
+        assert '/api/v1/analyze' in schema['paths']
+        assert 'AnalyzeResponse' in schema['components']['schemas']
+
+
+def test_integrated_catalog_without_weights(tmp_path):
+    models = json.loads((Path(__file__).resolve().parents[1]/'models.json').read_text(encoding='utf-8'))
+    assert len({m['id'] for m in models}) == 6
+    for model in models:
+        ModelConfig.model_validate(model)
+        if model['adapter'] == 'yolo':
+            assert model['device'] == 'cpu'
+            assert model['weights'].startswith('weights/')
+    config = tmp_path/'models.json'
+    config.write_text(json.dumps(models), encoding='utf-8')
+    with TestClient(create_app(tmp_path/'data', config)) as client:
+        catalog = client.get('/api/v1/models').json()
+        assert len(catalog) == 6
+        assert all(not m['available'] for m in catalog if not m['is_mock'])
+        image = upload(client)
+        result = wait_job(client, submit(client, image['id'], ['demo-a', 'demo-b']))
+        assert result['status'] == 'succeeded'
+        assert all(r['is_mock'] for r in result['results'])

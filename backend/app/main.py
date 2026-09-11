@@ -20,8 +20,9 @@ from PIL import Image, ImageDraw, ImageOps, UnidentifiedImageError
 from sqlalchemy import select, func
 
 from .adapters import create_adapter
+from .analyzer import QwenAnalyzer
 from .db import ImageRow, JobRow, init_db
-from .schemas import COLORS, Detection, InferenceRequest, ModelConfig, PublicModel, ImageInfo, JobInfo, HistoryPage, SubmittedJob
+from .schemas import COLORS, Detection, InferenceRequest, ModelConfig, PublicModel, ImageInfo, JobInfo, HistoryPage, SubmittedJob, AnalyzeRequest, AnalyzeResponse
 
 ROOT = Path(__file__).resolve().parents[1]
 TERMINAL = {'succeeded', 'failed', 'partial'}
@@ -157,6 +158,7 @@ def create_app(data_dir=None, config_path=None, adapter_factory=create_adapter):
     async def lifespan(app):
         app.state.service = Service(data_dir or os.getenv('PCB_DATA_DIR', ROOT / 'data'),
                                     config_path or os.getenv('PCB_MODELS_CONFIG', ROOT / 'models.json'), adapter_factory)
+        app.state.analyzer = QwenAnalyzer()
         yield
         await asyncio.to_thread(app.state.service.close)
 
@@ -305,6 +307,17 @@ def create_app(data_dir=None, config_path=None, adapter_factory=create_adapter):
         image.save(output, format='PNG')
         return Response(output.getvalue(), media_type='image/png',
                         headers={'Content-Disposition': f'attachment; filename="{job_id}-{model_id}.png"'})
+
+    @app.post('/api/v1/analyze', response_model=AnalyzeResponse)
+    def analyze(body: AnalyzeRequest):
+        s = service()
+        with s.Session() as db:
+            if not db.get(ImageRow, body.image_id):
+                raise HTTPException(404, '图片不存在')
+        with Image.open(s.path(body.image_id)) as source:
+            image = ImageOps.exif_transpose(source).convert('RGB')
+        detections = [d.model_dump() for d in body.detections]
+        return app.state.analyzer.analyze(image, detections)
 
     return app
 

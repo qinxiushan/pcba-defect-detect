@@ -44,6 +44,7 @@ test('uploads image, submits two models and displays real contract including emp
   await user.click(screen.getByRole('button',{name:/开始检测/}))
   await screen.findByText('未检出缺陷')
   expect(screen.getAllByText('模拟结果')).toHaveLength(2)
+  expect(screen.queryByRole('button',{name:/AI 分析缺陷/})).not.toBeInTheDocument()
   expect(screen.getByText('90.0%')).toBeInTheDocument()
   expect(screen.getByRole('link',{name:/导出 JSON/})).toHaveAttribute('href','/api/v1/inferences/job-1/export?format=json')
   expect(screen.getAllByRole('link',{name:/下载带框图片/})).toHaveLength(2)
@@ -52,6 +53,24 @@ test('uploads image, submits two models and displays real contract including emp
   expect(container.querySelectorAll('svg[aria-label="缺陷检测框"] rect')).toHaveLength(1)
   await user.click(screen.getByRole('switch'))
   expect(container.querySelectorAll('svg[aria-label="缺陷检测框"]')).toHaveLength(0)
+})
+
+test('analyzes a real result and renders the response',async()=>{
+  const originalFetch=globalThis.fetch
+  vi.stubGlobal('fetch',vi.fn(async(input:string,init?:RequestInit)=>{
+    if(input.endsWith('/inferences/job-1'))return new Response(JSON.stringify({
+      ...job,results:[{...job.results[0],is_mock:false}],
+    }))
+    if(input.endsWith('/analyze')){
+      expect(JSON.parse(init!.body as string)).toEqual({image_id:image.id,detections:job.results[0].detections})
+      return new Response(JSON.stringify({enabled:true,analysis:'检查蚀刻工艺参数'}))
+    }
+    return originalFetch(input,init)
+  }))
+  localStorage.setItem('pcb-last-job','job-1')
+  mount()
+  await userEvent.click(await screen.findByRole('button',{name:/AI 分析缺陷/}))
+  expect(await screen.findByText('检查蚀刻工艺参数')).toBeInTheDocument()
 })
 
 test('opens model catalog and history, restores a saved job after remount',async()=>{

@@ -19,3 +19,7 @@ export async function api<T>(path: string, init?: RequestInit): Promise<T> {
 export function exportUrl(id: string, modelId?: string) {
   return `/api/v1/inferences/${id}/export?format=${modelId ? 'png&model_id='+encodeURIComponent(modelId) : 'json'}`
 }
+export type Analysis = {enabled: boolean; analysis: string; message?: string | null; error?: string | null}
+export async function analyze(imageId: string, detections: Detection[]) {
+  return api<Analysis>('/analyze', {method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({image_id: imageId, detections})})
+}

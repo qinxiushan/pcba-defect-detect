@@ -114,6 +114,16 @@ with httpx.Client(base_url="http://127.0.0.1:8000/api/v1") as client:
 
 ## 接入验收
 
+### 可选 Qwen-VL 分析
+
+在 `backend/` 使用 `uv sync --locked --extra yolo --extra qwen` 安装依赖，设置环境变量 `QWEN_API_KEY`，然后以 `uv run --extra yolo --extra qwen uvicorn app.main:app --host 127.0.0.1 --port 8000` 启动。未配置密钥时基础 API 和模拟流程仍可使用。
+
+`POST /api/v1/analyze` 接收 `{"image_id":"已上传图片ID","detections":[]}`。`detections` 最多 200 项，使用上文的 `Detection` 契约。返回 `enabled`、`analysis`（字符串）及可空的 `message`、`error`；未配置密钥时 `enabled=false`，服务失败时返回 `error`，图片不存在返回 404，非法输入返回 422。OpenAPI 与前端 `Analysis` 类型同步维护。
+
+真实推理成功后可点击“AI 分析缺陷”，将图片和检测摘要发送给阿里云 DashScope 的 `qwen-vl-max`。分析文本不保存到检测历史，也不是模型准确率或工艺结论的验证证据。模拟结果不显示此按钮。本地自动测试使用替代服务，不调用付费 API。
+
+### 真实模型验收清单
+
 - 在新进程独立加载固定权重，使用 `scripts/verify_yolo.py` 或成员自己的等价脚本跑真实 PCB 图。
 - 验证类别映射、空检测、极小目标、非正方形图片和边界坐标。
 - 同图与一个模拟模型一起提交；真实结果不带模拟标记，模拟结果始终带标记。

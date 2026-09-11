@@ -1,5 +1,7 @@
 # PCB Insight · PCB 缺陷检测展示系统
 
+已集成 YOLOv11、YOLOv12、YOLO26 模型配置及可选 Qwen-VL 分析，交付范围和待验收事项见 [分支集成记录](docs/branch-integration.md)，分析接口配置见 [模型接入指南](docs/model-integration.md)。
+
 供团队共享的 React + FastAPI 推理展示系统。统一图片输入和检测结果协议，让不同成员的模型通过适配器接入同一套界面。
 
 本次共享内容为前后端系统和接入文档，**不包含训练代码、数据集、日志或模型权重**。没有权重也能通过模拟模型开发和演示。

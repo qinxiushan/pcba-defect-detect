@@ -108,3 +108,15 @@ class HistoryPage(BaseModel):
 class SubmittedJob(BaseModel):
     id: str
     status: Status
+
+
+class AnalyzeRequest(BaseModel):
+    image_id: str
+    detections: list[Detection] = Field(default_factory=list, max_length=200)
+
+
+class AnalyzeResponse(BaseModel):
+    enabled: bool
+    analysis: str = ''
+    message: Optional[str] = None
+    error: Optional[str] = None
