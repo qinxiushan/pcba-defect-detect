@@ -11,12 +11,12 @@ def main() -> None:
     model = YOLO("yolo26n.pt")
     model.train(
         data=str(DATA_CONFIG),
-        epochs=100,
+        epochs=50,
         imgsz=640,
         batch=-1,
         seed=42,
         project=str(ROOT / "runs"),
-        name="yolo26n_pcb_detect",
+        name="yolo26n_pcb_baseline",
     )
 
 

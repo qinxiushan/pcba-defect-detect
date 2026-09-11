@@ -5,9 +5,22 @@ __pycache__/
 *.py[cod]
 .pytest_cache/
 .mypy_cache/
+.ruff_cache/
+.coverage
+htmlcov/
+
+# Local environment and experiment configuration
+.env
+.env.*
+*.log
+*.csv
+*.yaml.bak
+pip-wheel-metadata/
 
 # Ultralytics outputs and model weights
 runs/
+wandb/
+mlruns/
 *.pt
 *.onnx
 *.engine

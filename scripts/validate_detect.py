@@ -5,7 +5,7 @@ from ultralytics import YOLO
 
 ROOT = Path(__file__).resolve().parents[1]
 DATA_CONFIG = ROOT / "pcb-defect-dataset" / "data.yaml"
-BEST_MODEL = ROOT / "runs" / "yolo26n_pcb_detect" / "weights" / "best.pt"
+BEST_MODEL = ROOT / "runs" / "yolo26n_pcb_baseline" / "weights" / "best.pt"
 
 
 def main() -> None:
