@@ -6,9 +6,17 @@ import base64
 import io
 import os
 
-from PIL import Image
+from PIL import Image, ImageDraw, ImageFont
 
-from .schemas import CLASS_LABELS
+from .schemas import CLASS_LABELS, CLASS_NAMES, COLORS
+
+# 优先中文字体，找不到就退回默认字体（此时标签改用英文，避免出现方块）
+_FONT_CANDIDATES = [
+    'C:/Windows/Fonts/msyh.ttc',
+    '/usr/share/fonts/opentype/noto/NotoSansCJK-Regular.ttc',
+    '/usr/share/fonts/truetype/wqy/wqy-zenhei.ttc',
+    '/System/Library/Fonts/PingFang.ttc',
+]
 
 
 class QwenAnalyzer:
@@ -31,16 +39,20 @@ class QwenAnalyzer:
             import dashscope
             from dashscope import MultiModalConversation
 
+            annotated = self._annotate(image.convert('RGB'), detections)
+
             buffer = io.BytesIO()
-            image.convert('RGB').save(buffer, format='JPEG')
+            annotated.save(buffer, format='JPEG')
             image_base64 = base64.b64encode(buffer.getvalue()).decode('utf-8')
 
             messages = [{
                 'role': 'user',
                 'content': [
                     {'image': f'data:image/jpeg;base64,{image_base64}'},
-                    {'text': f'这是一张PCB电路板图像。检测到的缺陷有：{self._describe(detections)}。'
-                             f'请分析这些缺陷的可能产生原因，并给出对应的修复或工艺改进建议。'}
+                    {'text': f'这是一张PCB电路板图像，图中已用彩色矩形框标出检测到的缺陷位置，'
+                             f'每个框左上角标注了缺陷类别和置信度。检测结果：{self._describe(detections)}。'
+                             f'请结合这些框的具体位置（例如靠近板边、焊盘密集区、走线拐角处等），'
+                             f'分析缺陷的可能产生原因、修复建议和工艺预防措施。'}
                 ]
             }]
 
@@ -64,6 +76,41 @@ class QwenAnalyzer:
             }
         except Exception as e:
             return {'enabled': True, 'error': str(e), 'analysis': '分析服务暂时不可用'}
+
+    @staticmethod
+    def _load_font(size: int):
+        for path in _FONT_CANDIDATES:
+            try:
+                return ImageFont.truetype(path, size), True
+            except Exception:
+                continue
+        return ImageFont.load_default(), False
+
+    @staticmethod
+    def _annotate(image: Image.Image, detections: list[dict]) -> Image.Image:
+        """把检测框画到图上，让 VLM 能"看见"缺陷位置。"""
+        draw = ImageDraw.Draw(image)
+        font, has_cjk = QwenAnalyzer._load_font(max(14, image.width // 40))
+        line_w = max(2, image.width // 200)
+
+        for d in detections:
+            x1, y1, x2, y2 = d['bbox_xyxy']
+            class_id = int(d.get('class_id', 0))
+            color = COLORS[class_id % len(COLORS)]
+            if has_cjk:
+                label = f'{CLASS_LABELS[class_id]} {d.get("confidence", 0):.2f}'
+            else:
+                label = f'{CLASS_NAMES[class_id]} {d.get("confidence", 0):.2f}'
+
+            draw.rectangle([x1, y1, x2, y2], outline=color, width=line_w)
+
+            left, top, right, bottom = draw.textbbox((0, 0), label, font=font)
+            tw, th = right - left, bottom - top
+            ty = max(0, y1 - th - 8)
+            draw.rectangle([x1, ty, x1 + tw + 10, ty + th + 8], fill=color)
+            draw.text((x1 + 5, ty + 4), label, fill='#ffffff', font=font)
+
+        return image
 
     @staticmethod
     def _describe(detections: list[dict]) -> str:
