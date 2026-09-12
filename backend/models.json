@@ -1,5 +1,5 @@
 [
-  {"id":"pcb-yolo26n-baseline","name":"PCB YOLO26n · 50轮基线","version":"baseline-20260911","author":"YOLO26小组","description":"YOLO26n 在 PCB 六类缺陷数据集上的 50 轮训练基线。","adapter":"yolo","device":"cpu","weights":"../runs/yolo26n_pcb_baseline-2/weights/best.pt"},
+  {"id":"pcb-yolo26n-baseline","name":"PCB YOLO26n · GPU 100轮基线","version":"gpu-100ep-20260912","author":"YOLO26小组","description":"YOLO26n 使用 RTX 4060 GPU 完成 100 轮训练的 PCB 六类缺陷基线。","adapter":"yolo","device":"cpu","weights":"../runs/yolo26n_pcb_gpu_100ep-2/weights/best.pt"},
   {"id":"demo-a","name":"演示模型 A","version":"demo-1.0","author":"系统演示","description":"固定算法生成模拟框，仅用于验证系统流程。","adapter":"mock","seed":1},
   {"id":"demo-b","name":"演示模型 B","version":"demo-1.0","author":"系统演示","description":"另一组可重复的模拟结果，用于多模型对比。","adapter":"mock","seed":9}
 ]

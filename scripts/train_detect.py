@@ -11,12 +11,14 @@ def main() -> None:
     model = YOLO("yolo26n.pt")
     model.train(
         data=str(DATA_CONFIG),
-        epochs=50,
+        epochs=100,
         imgsz=640,
         batch=-1,
         seed=42,
+            workers=0,
         project=str(ROOT / "runs"),
-        name="yolo26n_pcb_baseline",
+        device=0,
+        name="yolo26n_pcb_gpu_100ep",
     )
 
 

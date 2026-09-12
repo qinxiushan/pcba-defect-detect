@@ -14,7 +14,7 @@ python scripts\train_detect.py
 python scripts\validate_detect.py
 ```
 
-当前 YOLO26 baseline 使用 50 轮、640 输入尺寸和随机种子 42。最佳权重应位于 `runs/yolo26n_pcb_baseline-2/weights/best.pt`，指标报告位于 `results/yolo26_baseline_metrics.md`。权重和 `runs/` 已加入 `.gitignore`，共享推理前需要每个成员单独准备自己的权重文件。
+当前 YOLO26 baseline 使用 RTX 4060 GPU 训练 100 轮、640 输入尺寸和随机种子 42。最佳权重应位于 `runs/yolo26n_pcb_gpu_100ep-2/weights/best.pt`，指标报告位于 `results/yolo26_baseline_metrics.md`。权重和 `runs/` 已加入 `.gitignore`，共享推理前需要每个成员单独准备自己的权重文件。
 
 ## 共享推理系统
 
@@ -34,7 +34,7 @@ npm run dev -- --host 127.0.0.1
 
 访问 `http://127.0.0.1:5173`，API 文档在 `http://127.0.0.1:8000/docs`。
 
-YOLO26 模型已注册在 `backend/models.json`，指向本地训练得到的 `runs/yolo26n_pcb_baseline-2/weights/best.pt`。运行后端时需要安装 YOLO 可选依赖：
+YOLO26 模型已注册在 `backend/models.json`，指向本地训练得到的 `runs/yolo26n_pcb_gpu_100ep-2/weights/best.pt`。运行后端时需要安装 YOLO 可选依赖：
 
 ```powershell
 cd backend
