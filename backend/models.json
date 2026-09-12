@@ -1,8 +1,42 @@
 [
-  {"id":"member-yolov11","name":"PCB YOLOv11n · 真实模型","version":"yolov11n-20260908","author":"AIRJUICE","description":"YOLOv11n PCB 六类缺陷检测，100 epochs，默认 CPU 推理。类名与系统六类一致，无需 class_map。","adapter":"yolo","device":"cpu","weights":"weights/member-yolov11n-20260908.pt"},
-  {"id":"pcb-yolov8s-baseline","name":"PCB YOLOv8s · 真实模型","version":"baseline-20260908","author":"团队","description":"已完成 30 轮训练的 PCB 六类缺陷检测基线，使用固定权重副本进行 CPU 真实推理。","adapter":"yolo","device":"cpu","weights":"weights/pcb-yolov8s-baseline-20260908.pt"},
-  {"id":"pcb-yolov12n-clean","name":"PCB YOLOv12n · 按板划分模型","version":"clean-20260910","author":"同学D","description":"YOLOv12n 在去增强+按板子分组划分的数据集上训练77轮，test集(未见过的light_12板) mAP50=0.9723、mAP50-95=0.5039。","adapter":"yolo","device":"cpu","weights":"weights/pcb-yolov12n-clean-20260910.pt"},
-  {"id":"pcb-yolo26n-baseline","name":"PCB YOLO26n · 50轮基线","version":"baseline-20260911","author":"YOLO26小组","description":"YOLO26n 在 PCB 六类缺陷数据集上的 50 轮训练基线，固定版本 CPU 推理配置，待目标环境验收。","adapter":"yolo","device":"cpu","weights":"weights/pcb-yolo26n-baseline-20260911.pt"},
-  {"id":"demo-a","name":"演示模型 A","version":"demo-1.0","author":"系统演示","description":"固定算法生成模拟框，仅用于验证系统流程。","adapter":"mock","seed":1},
-  {"id":"demo-b","name":"演示模型 B","version":"demo-1.0","author":"系统演示","description":"另一组可重复的模拟结果，用于多模型对比。","adapter":"mock","seed":9}
+  {
+    "id": "pcb-yolov8s-baseline",
+    "name": "PCB YOLOv8s",
+    "version": "20260911",
+    "author": "程嘉标",
+    "description": "clean-v2 数据集，scale=0.2，30 轮训练的最佳权重。",
+    "adapter": "yolo",
+    "device": "cpu",
+    "weights": "weights/pcb-yolov8s-20260911.pt"
+  },
+  {
+    "id": "member-yolov11",
+    "name": "PCB YOLOv11n",
+    "version": "20260908",
+    "author": "林天佑",
+    "description": "PCB 六类缺陷检测，成员交付权重。",
+    "adapter": "yolo",
+    "device": "cpu",
+    "weights": "weights/pcb-yolov11n-20260908.pt"
+  },
+  {
+    "id": "pcb-yolov12n-clean",
+    "name": "PCB YOLOv12n",
+    "version": "20260910",
+    "author": "潘景琪",
+    "description": "PCB 六类缺陷检测，按板划分数据集训练。",
+    "adapter": "yolo",
+    "device": "cpu",
+    "weights": "weights/pcb-yolov12n-20260910.pt"
+  },
+  {
+    "id": "pcb-yolo26n-baseline",
+    "name": "PCB YOLOv26n",
+    "version": "20260911",
+    "author": "林朴",
+    "description": "PCB 六类缺陷检测，50 轮训练基线，权重待交付。",
+    "adapter": "yolo",
+    "device": "cpu",
+    "weights": "weights/pcb-yolov26n-20260911.pt"
+  }
 ]

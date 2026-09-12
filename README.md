@@ -4,7 +4,7 @@
 
 供团队共享的 React + FastAPI 推理展示系统。统一图片输入和检测结果协议，让不同成员的模型通过适配器接入同一套界面。
 
-本次共享内容为前后端系统和接入文档，**不包含训练代码、数据集、日志或模型权重**。没有权重也能通过模拟模型开发和演示。
+本次共享内容为前后端系统和接入文档，**不包含训练代码、数据集、日志或模型权重**。默认目录仅展示四位成员的真实模型，不再注册演示模型。
 
 ## 功能与架构
 
@@ -35,7 +35,7 @@ npm ci
 npm run dev -- --host 127.0.0.1
 ```
 
-访问 http://127.0.0.1:5173 ，上传 JPEG/PNG 并选择演示模型。真实权重或推理依赖缺失时，真实模型显示“未就绪”，不会妨碍模拟流程。模拟结果不代表实际缺陷。
+访问 http://127.0.0.1:5173 。缺少权重或推理依赖时，API 仍可启动，模型显示“未就绪”；实际检测需先准备对应权重。模拟适配器仅保留用于自动测试和显式开发配置。
 
 接口文档：http://127.0.0.1:8000/docs 。前端的 `/api` 由 Vite 转发至本机 8000 端口，无需直接跨域访问。
 
@@ -53,7 +53,7 @@ uv run --extra yolo uvicorn app.main:app --host 127.0.0.1 --port 8000
 
 4. 刷新页面、选择真实模型，用成员提供的样例图验证，并确认结果的 `is_mock=false`。
 
-已有基线配置引用 `backend/weights/pcb-yolov8s-baseline-20260908.pt`，该文件需另行分发；校验信息见 `backend/weights.manifest.json`。其他成员可以添加自己的模型，不需要此基线文件。
+权重统一命名为 `backend/weights/pcb-模型名-YYYYMMDD.pt`。当前模型、作者和版本见 [模型目录说明](docs/model-catalog.md)，实际文件校验信息见 `backend/weights.manifest.json`。权重需另行分发。
 
 **业务接口与模型架构解耦，但每种模型仍需要适配器。** 标准输出为类别、置信度及方向校正后的原图像素坐标 `bbox_xyxy`。类别为鼠咬、毛刺、缺失孔、短路、开路和杂铜。
 
@@ -61,16 +61,16 @@ uv run --extra yolo uvicorn app.main:app --host 127.0.0.1 --port 8000
 
 ## 目录
 
-| 路径 | 用途 |
-|---|---|
-| `frontend/` | React 界面、组件测试与 npm 锁文件 |
-| `backend/app/` | API、数据库、模型适配器与统一类型 |
-| `backend/tests/` | 不依赖真实权重的业务测试 |
-| `backend/scripts/` | 可选的真实推理验证脚本 |
-| `backend/models.json` | 受控模型注册 |
-| `backend/pyproject.toml`、`backend/uv.lock` | Python 依赖与可选推理环境 |
-| `docs/` | 接入指南和验证记录 |
-| `AGENTS.md` | 代码协作约定 |
+| 路径                                            | 用途                              |
+| ----------------------------------------------- | --------------------------------- |
+| `frontend/`                                   | React 界面、组件测试与 npm 锁文件 |
+| `backend/app/`                                | API、数据库、模型适配器与统一类型 |
+| `backend/tests/`                              | 不依赖真实权重的业务测试          |
+| `backend/scripts/`                            | 可选的真实推理验证脚本            |
+| `backend/models.json`                         | 受控模型注册                      |
+| `backend/pyproject.toml`、`backend/uv.lock` | Python 依赖与可选推理环境         |
+| `docs/`                                       | 接入指南和验证记录                |
+| `AGENTS.md`                                   | 代码协作约定                      |
 
 `backend/data/`、`backend/weights/`、虚拟环境、node_modules 和构建产物均不提交。真实验证脚本中的数据集路径是可选的本地输入，不是启动系统所需的仓库依赖。
 

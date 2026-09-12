@@ -244,19 +244,21 @@ def test_analysis_optional_and_request_contract(tmp_path, config, monkeypatch):
 
 def test_integrated_catalog_without_weights(tmp_path):
     models = json.loads((Path(__file__).resolve().parents[1]/'models.json').read_text(encoding='utf-8'))
-    assert len({m['id'] for m in models}) == 6
+    assert len({m['id'] for m in models}) == 4
+    assert [m['author'] for m in models] == ['程嘉标', '林天佑', '潘景琪', '林朴']
     for model in models:
         ModelConfig.model_validate(model)
-        if model['adapter'] == 'yolo':
-            assert model['device'] == 'cpu'
-            assert model['weights'].startswith('weights/')
+        assert model['adapter'] == 'yolo'
+        assert model['device'] == 'cpu'
+        assert model['weights'].startswith('weights/pcb-yolov')
     config = tmp_path/'models.json'
     config.write_text(json.dumps(models), encoding='utf-8')
     with TestClient(create_app(tmp_path/'data', config)) as client:
         catalog = client.get('/api/v1/models').json()
-        assert len(catalog) == 6
-        assert all(not m['available'] for m in catalog if not m['is_mock'])
+        assert len(catalog) == 4
+        assert all(not m['available'] and not m['is_mock'] for m in catalog)
+        assert client.get('/api/v1/health').json()['worker_alive']
         image = upload(client)
-        result = wait_job(client, submit(client, image['id'], ['demo-a', 'demo-b']))
-        assert result['status'] == 'succeeded'
-        assert all(r['is_mock'] for r in result['results'])
+        assert client.post('/api/v1/inferences', json={
+            'image_id': image['id'], 'model_ids': [models[0]['id']],
+        }).status_code == 409

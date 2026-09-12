@@ -1,6 +1,6 @@
 # PCB 推理 API
 
-独立的 FastAPI 应用，不依赖当前训练进程。当前注册一个真实 PCB YOLOv8s 模型和两个明确标注的模拟模型。真实模型使用已完成 30 轮训练的固定权重副本，默认 CPU 推理。
+独立的 FastAPI 应用，不依赖当前训练进程。默认注册 YOLOv8s、YOLOv11n、YOLOv12n、YOLOv26n 四个真实模型，使用固定版本权重，默认 CPU 推理，不注册演示模型。作者与权重命名见 [模型目录说明](../docs/model-catalog.md)。
 
 ## 启动
 
@@ -22,9 +22,9 @@ npm ci
 npm run dev -- --host 127.0.0.1
 ```
 
-打开 http://127.0.0.1:5173 。上传 JPEG/PNG，勾选“PCB YOLOv8s · 真实模型”并开始检测。演示模型仍可用于对比，但会明确标注“模拟”。前端的 `/api` 由 Vite 转发至本机 8000 端口，不需要配置浏览器跨域地址。
+打开 http://127.0.0.1:5173 。上传 JPEG/PNG，勾选已就绪的“PCB YOLOv8s”等模型并开始检测。前端的 `/api` 由 Vite 转发至本机 8000 端口，不需要配置浏览器跨域地址。
 
-仅开发模拟流程时可以不安装 `--extra yolo`，真实模型将显示未就绪。固定权重位于 `backend/weights/pcb-yolov8s-baseline-20260908.pt`，已忽略 Git 跟踪；在其他机器部署时需一并复制该文件。
+不安装 `--extra yolo` 或未提供权重时，API 仍可启动，但对应真实模型显示未就绪。权重放在 `backend/weights/`，文件名与 `models.json` 一致，已忽略 Git 跟踪；其他机器部署时需另行分发。
 
 ## 局域网与构建
 
