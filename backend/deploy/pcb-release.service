@@ -1,0 +1,24 @@
+[Unit]
+Description=PCB demo API (versioned releases)
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+User=pcb
+Group=pcb
+WorkingDirectory=/opt/pcb/current/backend
+EnvironmentFile=/etc/pcb/pcb.env
+ExecStart=/opt/pcb/current/backend/.venv/bin/uvicorn app.main:app --host 127.0.0.1 --port 8000 --workers 1
+Restart=on-failure
+RestartSec=5
+TimeoutStopSec=90
+UMask=0027
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectSystem=strict
+ProtectHome=true
+ReadWritePaths=/var/lib/pcb
+
+[Install]
+WantedBy=multi-user.target

@@ -12,6 +12,7 @@ class Detection(BaseModel):
     class_name: str
     confidence: float = Field(ge=0, le=1, allow_inf_nan=False)
     bbox_xyxy: tuple[float, float, float, float]
+    reason: Optional[str] = Field(default=None, max_length=1000)
 
     @model_validator(mode='after')
     def validate_box(self):
@@ -30,12 +31,19 @@ class ModelConfig(BaseModel):
     version: str
     author: str = '团队'
     description: str = ''
-    adapter: Literal['mock', 'yolo'] = 'mock'
+    adapter: Literal['mock', 'yolo', 'vlm'] = 'mock'
     device: str = 'cpu'
     weights: Optional[str] = None
     register_hook: Optional[str] = Field(default=None, alias='register')
     class_map: Optional[dict[int, int]] = None
     seed: int = 0
+    provider_model: Optional[str] = None
+
+    @model_validator(mode='after')
+    def vlm_model_required(self):
+        if self.adapter == 'vlm' and not self.provider_model:
+            raise ValueError('VLM 配置需要 provider_model')
+        return self
 
 
 class InferenceRequest(BaseModel):
@@ -60,6 +68,7 @@ class PublicModel(BaseModel):
     is_mock: bool
     available: bool
     availability_message: str
+    method: Literal['yolo', 'vlm', 'mock'] = 'yolo'
 
 
 class ImageInfo(BaseModel):
@@ -76,9 +85,23 @@ class ModelSnapshot(BaseModel):
     version: str
     author: str
     device: str
+    method: Literal['yolo', 'vlm', 'mock'] = 'yolo'
+    provider_model: Optional[str] = None
 
 
 Status = Literal['queued', 'running', 'succeeded', 'failed', 'partial']
+
+
+class VlmEvidence(BaseModel):
+    assessment: Literal['suspected_defects', 'no_visible_defects', 'uncertain']
+    summary: str
+    provider_model: str
+    prompt_version: str
+    coordinate_system: Literal['normalized_1000'] = 'normalized_1000'
+    raw_response: str
+    request_id: Optional[str] = None
+    reported_count: int
+    retained_count: int
 
 
 class ModelResult(BaseModel):
@@ -89,6 +112,7 @@ class ModelResult(BaseModel):
     load_ms: Optional[float]
     inference_ms: Optional[float]
     error: Optional[str]
+    vlm: Optional[VlmEvidence] = None
 
 
 class JobInfo(BaseModel):
@@ -108,6 +132,21 @@ class HistoryPage(BaseModel):
 class SubmittedJob(BaseModel):
     id: str
     status: Status
+
+
+class WorkerHealth(BaseModel):
+    queued: int
+    running: int
+    workers: int
+    alive: int
+    concurrency: int
+
+
+class HealthInfo(BaseModel):
+    status: Literal['ok', 'degraded']
+    worker_alive: bool
+    local: WorkerHealth
+    vlm: WorkerHealth
 
 
 class AnalyzeRequest(BaseModel):

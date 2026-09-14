@@ -55,22 +55,23 @@ test('uploads image, submits two models and displays real contract including emp
   expect(container.querySelectorAll('svg[aria-label="缺陷检测框"]')).toHaveLength(0)
 })
 
-test('analyzes a real result and renders the response',async()=>{
+test('restores persisted VLM boxes and assessment without posting analysis',async()=>{
   const originalFetch=globalThis.fetch
   vi.stubGlobal('fetch',vi.fn(async(input:string,init?:RequestInit)=>{
     if(input.endsWith('/inferences/job-1'))return new Response(JSON.stringify({
-      ...job,results:[{...job.results[0],is_mock:false}],
+      ...job,results:[{...job.results[0],is_mock:false,model:{...job.results[0].model,method:'vlm'},
+        detections:[{...job.results[0].detections[0],reason:'边缘向外突起'}],
+        vlm:{assessment:'suspected_defects',summary:'发现疑似毛刺',reported_count:1,retained_count:1}}],
     }))
-    if(input.endsWith('/analyze')){
-      expect(JSON.parse(init!.body as string)).toEqual({image_id:image.id,detections:job.results[0].detections})
-      return new Response(JSON.stringify({enabled:true,analysis:'检查蚀刻工艺参数'}))
-    }
     return originalFetch(input,init)
   }))
   localStorage.setItem('pcb-last-job','job-1')
   mount()
-  await userEvent.click(await screen.findByRole('button',{name:/AI 分析缺陷/}))
-  expect(await screen.findByText('检查蚀刻工艺参数')).toBeInTheDocument()
+  expect(await screen.findByText('发现疑似毛刺')).toBeInTheDocument()
+  expect(screen.getByText('边缘向外突起')).toBeInTheDocument()
+  expect(screen.getByText('模型自评分')).toBeInTheDocument()
+  expect(screen.queryByRole('button',{name:/AI 分析缺陷/})).not.toBeInTheDocument()
+  expect(requests.some(r=>r.url.endsWith('/analyze'))).toBe(false)
 })
 
 test('opens model catalog and history, restores a saved job after remount',async()=>{
@@ -84,4 +85,20 @@ test('opens model catalog and history, restores a saved job after remount',async
   await screen.findByText('pcb.png')
   await user.click(screen.getByRole('button',{name:/查\s*看/}))
   await waitFor(()=>expect(screen.getByText('未检出缺陷')).toBeInTheDocument())
+})
+
+test('shows completed local results while cloud is queued',async()=>{
+  const originalFetch=globalThis.fetch
+  vi.stubGlobal('fetch',vi.fn(async(input:string,init?:RequestInit)=>{
+    if(input.endsWith('/inferences/job-1'))return new Response(JSON.stringify({
+      ...job,status:'running',results:[job.results[0],{...job.results[1],status:'queued',
+        model:{...job.results[1].model,method:'vlm'}}],
+    }))
+    return originalFetch(input,init)
+  }))
+  localStorage.setItem('pcb-last-job','job-1')
+  mount()
+  expect(await screen.findByText('等待云端分析')).toBeInTheDocument()
+  expect(screen.getByText('90.0%')).toBeInTheDocument()
+  expect(screen.getByText(/共享演示环境/)).toBeInTheDocument()
 })

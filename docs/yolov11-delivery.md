@@ -1,5 +1,7 @@
 # 成员模型交付文档 — YOLOv11n PCB 缺陷检测
 
+> 历史验证数值保留用于追溯；操作命令已更新为当前 CPU＋VLM 环境。原仓库样例图已删除，请先自备 `backend/weights/sample_pcb.jpg`。默认目录已移除模拟模型，旧 `acceptance_test.py` 不适用于当前配置。
+
 作者：AIRJUICE <2106620627@qq.com>
 交付日期：2026-09-09
 
@@ -54,8 +56,8 @@ models.json 注册项：
 
 - Windows 11，NVIDIA RTX 4060 Laptop GPU（8 GB VRAM），CUDA 12.4
 - conda 环境：Python 3.10.21 + torch 2.5.1+cu124
-- 后端启动（在 `backend/` 目录）：`python -m uvicorn app.main:app --host 127.0.0.1 --port 8000`
-- 前端启动（在 `frontend/` 目录）：`npm run dev -- --host 127.0.0.1`
+- 后端启动（在 `backend/` 目录）：`uv run --extra yolo --extra qwen uvicorn app.main:app --host 127.0.0.1 --port 8000`
+- 前端启动（在 `frontend/` 目录）：`npm.cmd run dev -- --host 127.0.0.1`
 
 ## 3. 类别表与映射
 
@@ -108,16 +110,16 @@ models.json 注册项：
 ## 5. 样例图与推理结果
 
 ### 样例图
-- 仓库内提交副本：`docs/assets/yolov11-sample.jpg`（600×600，70 KB，随 Git 分发）
+- 原仓库样例 `docs/assets/yolov11-sample.jpg` 已删除，不再随 Git 分发。
 - 原始来源：val 集 `light_01_missing_hole_02_2_600.jpg`
-- 运行时也可放在 `backend/weights/sample_pcb.jpg`（验收脚本默认读取仓库内副本）
+- 运行时也可放在 `backend/weights/sample_pcb.jpg`（当前命令使用此自备样例路径）
 
 ### 独立加载验证（verify_yolo.py，CPU 新进程）
 
 在 `backend/` 目录执行：
 
 ```powershell
-python scripts/verify_yolo.py --weights weights/member-yolov11n-20260908.pt --image ../docs/assets/yolov11-sample.jpg
+uv run --extra yolo --extra qwen python scripts/verify_yolo.py --weights weights/pcb-yolov11n-20260908.pt --image weights/sample_pcb.jpg
 ```
 
 输出：
@@ -146,7 +148,7 @@ python scripts/verify_yolo.py --weights weights/member-yolov11n-20260908.pt --im
 
 ## 6. 接入验收结果
 
-完整验收脚本：`backend/scripts/acceptance_test.py`（后端启动后，在 `backend/` 目录执行 `python scripts/acceptance_test.py`）。
+当前 HTTP 冒烟验证脚本：`backend/scripts/verify_live.py`（需本地六类测试集，后端启动后，在 `backend/` 目录执行 `uv run --extra yolo --extra qwen python scripts/verify_live.py --url http://127.0.0.1:8000/api/v1 --model member-yolov11 --dataset ../pcb-defect-dataset/clean-v2/test`）。
 
 | 验收项 | 结果 |
 |---|---|
@@ -166,6 +168,6 @@ python scripts/verify_yolo.py --weights weights/member-yolov11n-20260908.pt --im
 
 权重文件 `member-yolov11n-20260908.pt`（5.3 MB）按仓库约定不纳入 Git（`*.pt` 在 .gitignore 中）。接入方通过网盘/即时通讯收到权重后：
 
-1. 放入 `backend/weights/member-yolov11n-20260908.pt`；
+1. 放入 `backend/weights/pcb-yolov11n-20260908.pt`；
 2. 校验 SHA-256 为 `8975896f33816824a6ba56b3618275a05f946a46cf9ee4570dd5285b69413659`；
-3. 重启后端，模型目录中“我的模型 · YOLOv11n（GPU）”显示可用即接入成功。
+3. 重启后端，选择“PCB YOLOv11n”，通过真实图片推理后再确认接入成功；仅显示可用不等于验收通过。

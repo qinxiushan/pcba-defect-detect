@@ -185,8 +185,8 @@ def test_single_model_cache_and_invalid_adapter_output(tmp_path,config):
         assert events==[('load','a')]
         invalid=wait_job(client,submit(client,image['id'],['b']))
         assert invalid['status']=='failed'
-        assert events[:3]==[('load','a'),('unload','a'),('load','b')]
-    assert events[-1]==('unload','b')
+        assert events==[('load','a'),('load','b')]
+    assert sorted(events[2:])==[('unload','a'),('unload','b')]
 
 
 def test_openapi_contract_and_unavailable_model(tmp_path,config):
@@ -216,6 +216,27 @@ def test_failed_load_cleanup_does_not_import_torch(monkeypatch):
     adapter.unload()
 
 
+def test_legacy_results_still_match_json_export(tmp_path, config):
+    app = create_app(tmp_path/'data', config)
+    with TestClient(app) as client:
+        job_id = submit(client, upload(client)['id'])
+        wait_job(client, job_id)
+        with app.state.service.Session.begin() as db:
+            job = db.get(JobRow, job_id)
+            old = json.loads(json.dumps(job.results))
+            for result in old:
+                result.pop('vlm', None)
+                result['model'].pop('method', None)
+                result['model'].pop('provider_model', None)
+                for detection in result['detections']:
+                    detection.pop('reason', None)
+            job.results = old
+        detail = client.get(f'/api/v1/inferences/{job_id}').json()
+        assert detail['results'][0]['model']['method'] == 'mock'
+        assert detail['results'][0]['vlm'] is None
+        assert client.get(f'/api/v1/inferences/{job_id}/export').json() == detail
+
+
 def test_analysis_optional_and_request_contract(tmp_path, config, monkeypatch):
     monkeypatch.delenv('QWEN_API_KEY', raising=False)
     app = create_app(tmp_path/'data', config)
@@ -230,13 +251,9 @@ def test_analysis_optional_and_request_contract(tmp_path, config, monkeypatch):
         assert client.post('/api/v1/analyze', json={
             'image_id': image['id'], 'detections': [detection] * 201,
         }).status_code == 422
-        def analyze(image, detections):
-            assert image.size == (120, 80)
-            assert detections[0]['class_name'] == 'mouse_bite'
-            return {'enabled': True, 'analysis': 'test analysis'}
-        monkeypatch.setattr(app.state.analyzer, 'analyze', analyze)
         response = client.post('/api/v1/analyze', json={'image_id': image['id'], 'detections': [detection]})
-        assert response.json()['analysis'] == 'test analysis'
+        assert response.json()['enabled'] is False
+        assert '已停用' in response.json()['message']
         schema = client.get('/openapi.json').json()
         assert '/api/v1/analyze' in schema['paths']
         assert 'AnalyzeResponse' in schema['components']['schemas']
@@ -244,18 +261,20 @@ def test_analysis_optional_and_request_contract(tmp_path, config, monkeypatch):
 
 def test_integrated_catalog_without_weights(tmp_path):
     models = json.loads((Path(__file__).resolve().parents[1]/'models.json').read_text(encoding='utf-8'))
-    assert len({m['id'] for m in models}) == 4
-    assert [m['author'] for m in models] == ['程嘉标', '林天佑', '潘景琪', '林朴']
+    assert len({m['id'] for m in models}) == 5
+    assert [m['author'] for m in models[:4]] == ['程嘉标', '林天佑', '潘景琪', '林朴']
     for model in models:
         ModelConfig.model_validate(model)
-        assert model['adapter'] == 'yolo'
-        assert model['device'] == 'cpu'
-        assert model['weights'].startswith('weights/pcb-yolov')
+        if model['adapter'] == 'yolo':
+            assert model['device'] == 'cpu'
+            assert model['weights'].startswith('weights/pcb-yolov')
+        else:
+            assert model['adapter'] == 'vlm' and model['provider_model']
     config = tmp_path/'models.json'
     config.write_text(json.dumps(models), encoding='utf-8')
     with TestClient(create_app(tmp_path/'data', config)) as client:
         catalog = client.get('/api/v1/models').json()
-        assert len(catalog) == 4
+        assert len(catalog) == 5
         assert all(not m['available'] and not m['is_mock'] for m in catalog)
         assert client.get('/api/v1/health').json()['worker_alive']
         image = upload(client)

@@ -14,4 +14,6 @@ YOLOv12、YOLO26 分支尚未提供权重校验清单；交付时需补充 SHA-2
 
 本次自动测试覆盖基础 API、模拟流程、分析接口与替代分析服务，不代表新增模型真实推理验收，也未调用 Qwen 云端服务。成员报告的准确率不能作为本次环境的验收证据。
 
-验证结果：`uv sync --locked --extra yolo` 成功，后端 `uv run --extra yolo pytest -q` 14 项通过；前端 `npm ci`、3 项组件测试和 `npm run build` 通过。Windows 上默认进程池测试停滞，改为 Vitest 单 worker 线程池后通过。构建仍有大包提示；npm 报告 2 项 moderate 依赖漏洞，本次未进行依赖升级。
+合并时验证结果：后端依赖同步成功、14 项测试通过；前端依赖安装、3 项组件测试和生产构建通过。Windows 上默认进程池测试停滞，改为 Vitest 单 worker 线程池后通过。构建仍有大包提示；当时 npm 报告 2 项 moderate 依赖漏洞，合并时未进行依赖升级。
+
+当前启动与测试命令已更新，见 [README](../README.md)；同步、启动、测试均使用 `--extra yolo --extra qwen`，避免移除 VLM 依赖。本文中的旧权重路径和验证数值仅用于历史追溯，当前配置以 [模型目录](model-catalog.md) 为准。

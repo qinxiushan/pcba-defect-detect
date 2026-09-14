@@ -34,7 +34,7 @@
   "description": "带注意力模块的 PCB 检测模型",
   "adapter": "yolo",
   "device": "cpu",
-  "weights": "../weights/member-li-v1/best.pt",
+  "weights": "weights/pcb-member-li-v1-20260908.pt",
   "register": "member_models.register:register_modules",
   "class_map": {"0": 3, "1": 0, "2": 1, "3": 2, "4": 4, "5": 5}
 }
@@ -80,7 +80,7 @@ class MemberAdapter:
 
 契约要求：框坐标为校正方向后的原图像素坐标，`0 ≤ x1 < x2 ≤ width`、`0 ≤ y1 < y2 ≤ height`；置信度为 0～1，不能出现 NaN 或无穷值；class_name 与系统 ID 一致。适配器负责反归一化及去除 letterbox 填充。YOLO 适配器使用 Ultralytics 已恢复至原图的 `boxes.xyxy`，不要再缩放一次。
 
-加载和 predict 都在专用串行线程执行，不会占用 FastAPI 的异步事件循环。仅缓存一个模型；再次使用同一模型时加载耗时为 0。无法共存的框架可以以后用远程适配器实现同一契约，第一版不要求成员维护 HTTP 服务。
+每个本地模型的加载、predict 和卸载均在自己的专属线程执行，首次加载后保持常驻；再次使用时加载耗时为 0。不同模型共享可配置的本地并发槽位，默认 1；VLM 使用独立线程池，不占本地槽位。适配器不能在线程间共享可变推理状态，框架全局线程数由服务启动时统一设置。无法在同一进程共存的框架仍需另行隔离。详见 [演示部署](demo-deployment.md)。
 
 ## 业务调用示例
 
@@ -95,7 +95,7 @@ with httpx.Client(base_url="http://127.0.0.1:8000/api/v1") as client:
     image = response.json()
     response = client.post("/inferences", json={
         "image_id": image["id"],
-        "model_ids": ["demo-a", "demo-b"],
+        "model_ids": ["pcb-yolov8s-baseline", "member-yolov11"],
         "confidence": 0.25
     })
     response.raise_for_status()
@@ -114,13 +114,13 @@ with httpx.Client(base_url="http://127.0.0.1:8000/api/v1") as client:
 
 ## 接入验收
 
-### 可选 Qwen-VL 分析
+### VLM 零样本检测
 
-在 `backend/` 使用 `uv sync --locked --extra yolo --extra qwen` 安装依赖，设置环境变量 `QWEN_API_KEY`，然后以 `uv run --extra yolo --extra qwen uvicorn app.main:app --host 127.0.0.1 --port 8000` 启动。未配置密钥时基础 API 和模拟流程仍可使用。
+在 `backend/` 使用 `uv sync --locked --python 3.11 --extra yolo --extra qwen` 安装依赖，设置 `QWEN_API_KEY` 或 `DASHSCOPE_API_KEY`，然后以 `uv run --extra yolo --extra qwen uvicorn app.main:app --host 127.0.0.1 --port 8000` 启动。未配置密钥时 VLM 显示未就绪，基础 API 和其他模型不受影响。
 
-`POST /api/v1/analyze` 接收 `{"image_id":"已上传图片ID","detections":[]}`。`detections` 最多 200 项，使用上文的 `Detection` 契约。返回 `enabled`、`analysis`（字符串）及可空的 `message`、`error`；未配置密钥时 `enabled=false`，服务失败时返回 `error`，图片不存在返回 404，非法输入返回 422。OpenAPI 与前端 `Analysis` 类型同步维护。
+使用 `POST /api/v1/inferences`，传入 `image_id`、`model_ids:["pcb-qwen-vlm"]` 和阈值，不传检测框。VLM 不读取 YOLO 输出；独立推理后通过现有任务、历史和导出接口读取结果。`ModelResult.vlm` 保存判断、说明、候选数量、原始文本和调用版本；`Detection.reason` 保存观察依据；`model.method` 标明推理方法。字段默认值兼容旧数据库记录。
 
-真实推理成功后可点击“AI 分析缺陷”，将图片和检测摘要发送给阿里云 DashScope 的 `qwen-vl-max`。分析文本不保存到检测历史，也不是模型准确率或工艺结论的验证证据。模拟结果不显示此按钮。本地自动测试使用替代服务，不调用付费 API。
+旧 `POST /api/v1/analyze` 保留请求、响应结构并标记 deprecated；对存在的图片返回 `enabled=false` 和迁移提示，不再调用云端。图片不存在仍为 404，非法输入仍为 422。前端已移除该入口。新链路的坐标协议、持久化及验收见 [VLM 检测](vlm-detection.md)。
 
 ### 真实模型验收清单
 

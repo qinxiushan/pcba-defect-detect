@@ -1,6 +1,6 @@
 # 模型目录（2026-09-12）
 
-`backend/models.json` 统一使用多行 JSON，字段顺序为 id、name、version、author、description、adapter、device、weights；按 v8、v11、v12、v26 排列，默认仅包含四个真实模型。
+`backend/models.json` 使用多行 JSON，前四项按 v8、v11、v12、v26 排列；第五项为 `pcb-qwen-vlm` 独立云端零样本检测，使用 `provider_model`，不需要权重文件。见 [VLM 检测说明](vlm-detection.md)。
 
 | 模型                | 作者   | 固定权重文件                           |
 | ------------------- | ------ | -------------------------------------- |

@@ -1,7 +1,10 @@
 export type Status = 'queued' | 'running' | 'succeeded' | 'failed' | 'partial'
-export type Model = {id: string; name: string; version: string; author: string; description: string; device: string; is_mock: boolean; available: boolean; availability_message: string}
-export type Detection = {class_id: number; class_name: string; confidence: number; bbox_xyxy: [number, number, number, number]}
-export type Result = {model: Pick<Model, 'id' | 'name' | 'version' | 'author' | 'device'>; is_mock: boolean; status: Status; detections: Detection[]; load_ms: number | null; inference_ms: number | null; error: string | null}
+export type WorkerHealth = {queued: number; running: number; workers: number; alive: number; concurrency: number}
+export type HealthInfo = {status: 'ok' | 'degraded'; worker_alive: boolean; local: WorkerHealth; vlm: WorkerHealth}
+export type Model = {id: string; name: string; version: string; author: string; description: string; device: string; method?: 'yolo' | 'vlm' | 'mock'; is_mock: boolean; available: boolean; availability_message: string}
+export type Detection = {class_id: number; class_name: string; confidence: number; bbox_xyxy: [number, number, number, number]; reason?: string | null}
+export type VlmEvidence = {assessment: 'suspected_defects' | 'no_visible_defects' | 'uncertain'; summary: string; provider_model: string; prompt_version: string; coordinate_system: 'normalized_1000'; raw_response: string; request_id: string | null; reported_count: number; retained_count: number}
+export type Result = {model: Pick<Model, 'id' | 'name' | 'version' | 'author' | 'device' | 'method'> & {provider_model?: string | null}; is_mock: boolean; status: Status; detections: Detection[]; load_ms: number | null; inference_ms: number | null; error: string | null; vlm?: VlmEvidence | null}
 export type UploadedImage = {id: string; width: number; height: number; url: string; filename?: string}
 export type Job = {id: string; created_at: string; status: Status; confidence: number; image: UploadedImage; results: Result[]}
 export const terminal = (status: Status) => ['succeeded', 'failed', 'partial'].includes(status)
@@ -18,8 +21,4 @@ export async function api<T>(path: string, init?: RequestInit): Promise<T> {
 }
 export function exportUrl(id: string, modelId?: string) {
   return `/api/v1/inferences/${id}/export?format=${modelId ? 'png&model_id='+encodeURIComponent(modelId) : 'json'}`
-}
-export type Analysis = {enabled: boolean; analysis: string; message?: string | null; error?: string | null}
-export async function analyze(imageId: string, detections: Detection[]) {
-  return api<Analysis>('/analyze', {method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({image_id: imageId, detections})})
 }

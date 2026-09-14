@@ -2,7 +2,6 @@
 import gc
 import hashlib
 import importlib
-import os
 import sys
 from pathlib import Path
 from typing import Protocol
@@ -49,8 +48,6 @@ class YoloAdapter:
     def load(self):
         if not self.config.weights or not Path(self.config.weights).is_file():
             raise ValueError('权重文件不存在')
-        import torch
-        torch.set_num_threads(max(1, int(os.getenv('PCB_TORCH_THREADS', '2'))))
         if self.config.register_hook:
             module, function = self.config.register_hook.split(':')
             getattr(importlib.import_module(module), function)()
@@ -85,4 +82,7 @@ class YoloAdapter:
 
 
 def create_adapter(config: ModelConfig) -> Adapter:
+    if config.adapter == 'vlm':
+        from .vlm import VlmAdapter
+        return VlmAdapter(config)
     return {'mock': MockAdapter, 'yolo': YoloAdapter}[config.adapter](config)

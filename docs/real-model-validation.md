@@ -11,7 +11,7 @@
 - 运行环境：后端 `.venv`，Python 3.11、Torch 2.8.0+cpu、torchvision 0.23.0+cpu、Ultralytics 8.4.143；由 uv 和锁文件管理。
 - 推理使用 CPU，默认 2 个 Torch 计算线程；未修改原有训练环境、训练脚本或正在训练的权重。
 
-首次安装的 Torch 2.14.0 在此机器上报 `WinError 1114 / c10.dll`，沙箱外也无法导入。替换为官方 CPU 源的固定版本后，独立张量计算及实际模型推理均通过。相关版本和安装源已写入 `pyproject.toml` / `uv.lock`，重装时使用 `uv sync --locked --extra yolo`。
+首次安装的 Torch 2.14.0 在此机器上报 `WinError 1114 / c10.dll`，沙箱外也无法导入。替换为官方 CPU 源的固定版本后，独立张量计算及实际模型推理均通过。相关版本和安装源已写入 `pyproject.toml` / `uv.lock`，重装时使用 `uv sync --locked --python 3.11 --extra yolo --extra qwen`。
 
 ## 六类图片测试
 
@@ -34,16 +34,18 @@
 
 这是接入与功能冒烟测试，没有计算完整测试集 mAP，也没有据此宣称模型准确率。数量一致不等同于所有框定位准确；模型质量评估应另行使用固定测试集。
 
-## 直接使用
+## 当前版本复验
+
+以下命令验证当前注册版本，不复现上方旧权重的历史数值；需要本地 clean-v2/test 六类样本集。
 
 1. 刷新 http://127.0.0.1:5173 。
-2. 在工作台勾选 **PCB YOLOv8s · 真实模型**，上传图片并开始检测。
-3. 在“检测历史”查看这次六类测试结果。原来的两个演示模型仍标注“模拟”，旧模拟历史不会自动变为真实结果。
+2. 在工作台勾选 **PCB YOLOv8s**，上传图片并开始检测。
+3. 在“检测历史”查看这次六类测试结果。默认目录不再提供演示模型，旧模拟历史保持原标记。
 
 重复验证命令（服务启动后，在 backend 目录运行）：
 
 ```powershell
-uv run --extra yolo python scripts/verify_live.py
+uv run --extra yolo --extra qwen python scripts/verify_live.py --url http://127.0.0.1:8000/api/v1 --model pcb-yolov8s-baseline --dataset ../pcb-defect-dataset/clean-v2/test
 ```
 
 浏览器截图验收仍未进行；本次额外完成了真实 HTTP 全流程和导出图片的本地可视检查。

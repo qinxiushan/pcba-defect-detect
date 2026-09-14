@@ -2,11 +2,8 @@ import asyncio
 import importlib.util
 import io
 import json
-import logging
 import os
-import queue
 import threading
-import time
 import warnings
 from contextlib import asynccontextmanager
 from datetime import datetime, timezone
@@ -20,16 +17,16 @@ from PIL import Image, ImageDraw, ImageOps, UnidentifiedImageError
 from sqlalchemy import select, func
 
 from .adapters import create_adapter
-from .analyzer import QwenAnalyzer
 from .db import ImageRow, JobRow, init_db
-from .schemas import COLORS, Detection, InferenceRequest, ModelConfig, PublicModel, ImageInfo, JobInfo, HistoryPage, SubmittedJob, AnalyzeRequest, AnalyzeResponse
+from .scheduler import Scheduler
+from .schemas import HealthInfo
+from .schemas import COLORS, Detection, InferenceRequest, ModelConfig, ModelResult, PublicModel, ImageInfo, JobInfo, HistoryPage, SubmittedJob, AnalyzeRequest, AnalyzeResponse
 
 ROOT = Path(__file__).resolve().parents[1]
 TERMINAL = {'succeeded', 'failed', 'partial'}
-logger = logging.getLogger(__name__)
 
 
-class Service:
+class Service(Scheduler):
     def __init__(self, data_dir, config_path, factory):
         self.data = Path(data_dir)
         (self.data / 'images').mkdir(parents=True, exist_ok=True)
@@ -43,114 +40,40 @@ class Service:
                 config.weights = str((Path(config_path).parent / config.weights).resolve())
         self.factory = factory
         self.lock = threading.Lock()
-        self.queue = queue.Queue()
-        self.current = None
-        self.adapter = None
-        self.stopping = threading.Event()
-        with self.Session.begin() as db:
-            for job in db.scalars(select(JobRow).where(JobRow.status.not_in(TERMINAL))):
-                job.status = 'failed'
-                job.results = [dict(r, status='failed', error='服务重启中断，请重新提交')
-                               if r['status'] not in TERMINAL else r for r in job.results]
-        self.thread = threading.Thread(target=self.worker, name='inference-worker', daemon=True)
-        self.thread.start()
+        self.start_scheduler()
 
     def availability(self, config):
         if config.adapter == 'mock':
             return True, '模拟演示'
+        if config.adapter == 'vlm':
+            from .vlm import VlmSettings
+            if not VlmSettings().api_key:
+                return False, '未配置 QWEN_API_KEY 或 DASHSCOPE_API_KEY'
+            if importlib.util.find_spec('dashscope') is None:
+                return False, '未安装 qwen 可选依赖'
+            return True, '云端零样本检测；原图将发送至阿里云，需实际调用验证'
         if not config.weights or not Path(config.weights).is_file():
             return False, '未配置有效权重文件'
         if importlib.util.find_spec('ultralytics') is None:
             return False, '未安装 YOLO 可选依赖'
+        if getattr(self, 'torch_error', False):
+            return False, 'YOLO 运行环境初始化失败，请检查后端日志'
         return True, '待首次加载验证'
 
     def path(self, image_id):
         return self.data / 'images' / f'{image_id}.png'
 
-    def close(self):
-        self.stopping.set()
-        self.queue.put(None)
-        self.thread.join()
-        self.engine.dispose()
-
-    def update_result(self, job_id, index, **changes):
-        with self.Session.begin() as db:
-            job = db.get(JobRow, job_id)
-            results = list(job.results)
-            results[index] = dict(results[index], **changes)
-            job.results = results
-            job.status = 'running'
-
-    def worker(self):
-        try:
-            while not self.stopping.is_set():
-                job_id = self.queue.get()
-                if job_id is None:
-                    return
-                try:
-                    self.run_job(job_id)
-                except Exception:
-                    logger.exception('Unexpected task failure: %s', job_id)
-                    with self.Session.begin() as db:
-                        job = db.get(JobRow, job_id)
-                        job.status = 'failed'
-                        job.results = [dict(r, status='failed', error='任务执行异常，请检查后端日志')
-                                       if r['status'] not in TERMINAL else r for r in job.results]
-        finally:
-            if self.adapter:
-                self.adapter.unload()
-
-    def run_job(self, job_id):
-        with self.Session() as db:
-            job = db.get(JobRow, job_id)
-            image_path = self.path(job.image_id)
-            results = job.results
-            confidence = job.confidence
-        with Image.open(image_path) as source:
-            image = source.convert('RGB')
-        for index, result in enumerate(results):
-            if self.stopping.is_set():
-                return
-            config = self.models[result['model']['id']]
-            self.update_result(job_id, index, status='running')
-            try:
-                load_ms = 0.0
-                if self.current != config.id:
-                    if self.adapter:
-                        self.adapter.unload()
-                    self.adapter = None
-                    self.current = None
-                    adapter = self.factory(config)
-                    start = time.perf_counter()
-                    try:
-                        adapter.load()
-                    except Exception:
-                        adapter.unload()
-                        raise
-                    load_ms = (time.perf_counter() - start) * 1000
-                    self.adapter, self.current = adapter, config.id
-                start = time.perf_counter()
-                detections = [Detection.model_validate(d) for d in self.adapter.predict(image.copy(), confidence)]
-                inference_ms = (time.perf_counter() - start) * 1000
-                for d in detections:
-                    if d.bbox_xyxy[2] > image.width or d.bbox_xyxy[3] > image.height:
-                        raise ValueError('适配器返回了超出原图范围的检测框')
-                self.update_result(job_id, index, status='succeeded',
-                                   detections=[d.model_dump(mode='json') for d in detections],
-                                   load_ms=round(load_ms, 2), inference_ms=round(inference_ms, 2))
-            except Exception:
-                logger.exception('Model inference failed: %s', config.id)
-                self.update_result(job_id, index, status='failed', error='模型加载或推理失败，请检查模型配置及后端日志')
-        with self.Session.begin() as db:
-            job = db.get(JobRow, job_id)
-            successes = sum(r['status'] == 'succeeded' for r in job.results)
-            job.status = 'succeeded' if successes == len(job.results) else 'partial' if successes else 'failed'
-
     def serialize(self, db, job):
         image = db.get(ImageRow, job.image_id)
+        # Supply new optional fields for old rows, identically for detail and JSON export.
+        results = []
+        for result in job.results:
+            model = dict(result['model'])
+            model.setdefault('method', 'mock' if result['is_mock'] else 'yolo')
+            results.append(ModelResult.model_validate(dict(result, model=model)).model_dump(mode='json'))
         return dict(id=job.id, created_at=job.created_at, status=job.status, confidence=job.confidence,
                     image=dict(id=image.id, filename=image.filename, width=image.width, height=image.height,
-                               url=f'/api/v1/images/{image.id}'), results=job.results)
+                               url=f'/api/v1/images/{image.id}'), results=results)
 
 
 def create_app(data_dir=None, config_path=None, adapter_factory=create_adapter):
@@ -158,7 +81,6 @@ def create_app(data_dir=None, config_path=None, adapter_factory=create_adapter):
     async def lifespan(app):
         app.state.service = Service(data_dir or os.getenv('PCB_DATA_DIR', ROOT / 'data'),
                                     config_path or os.getenv('PCB_MODELS_CONFIG', ROOT / 'models.json'), adapter_factory)
-        app.state.analyzer = QwenAnalyzer()
         yield
         await asyncio.to_thread(app.state.service.close)
 
@@ -170,18 +92,18 @@ def create_app(data_dir=None, config_path=None, adapter_factory=create_adapter):
     def service():
         return app.state.service
 
-    @app.get('/api/v1/health')
+    @app.get('/api/v1/health', response_model=HealthInfo)
     def health():
         s = service()
         with s.Session() as db:
             db.execute(select(1))
-        return {'status': 'ok', 'worker_alive': s.thread.is_alive()}
+        return s.scheduler_health()
 
     @app.get('/api/v1/models', response_model=list[PublicModel])
     def models():
         s = service()
         return [dict(id=m.id, name=m.name, version=m.version, author=m.author, description=m.description,
-                     device=m.device, is_mock=m.adapter == 'mock', available=s.availability(m)[0],
+                     device=m.device, method=m.adapter, is_mock=m.adapter == 'mock', available=s.availability(m)[0],
                      availability_message=s.availability(m)[1]) for m in s.models.values()]
 
     @app.post('/api/v1/images', status_code=201, response_model=ImageInfo)
@@ -204,7 +126,7 @@ def create_app(data_dir=None, config_path=None, adapter_factory=create_adapter):
         image_id = uuid4().hex
         image.save(s.path(image_id))
         try:
-            with s.Session.begin() as db:
+            with s.lock, s.Session.begin() as db:
                 db.add(ImageRow(id=image_id, filename=Path(file.filename or 'image').name,
                                 width=image.width, height=image.height))
         except Exception:
@@ -238,13 +160,14 @@ def create_app(data_dir=None, config_path=None, adapter_factory=create_adapter):
                 if not available:
                     raise HTTPException(409, f'{config.name}：{reason}')
                 results.append(dict(model=dict(id=config.id, name=config.name, version=config.version,
-                                               author=config.author, device=config.device),
+                                               author=config.author, device=config.device, method=config.adapter,
+                                               provider_model=config.provider_model),
                                     is_mock=config.adapter == 'mock', status='queued', detections=[],
                                     load_ms=None, inference_ms=None, error=None))
             job_id = uuid4().hex
             db.add(JobRow(id=job_id, image_id=body.image_id, confidence=body.confidence,
                           created_at=datetime.now(timezone.utc).isoformat(), status='queued', results=results))
-        s.queue.put(job_id)
+        s.dispatch(job_id, body.model_ids)
         return {'id': job_id, 'status': 'queued'}
 
     @app.get('/api/v1/inferences', response_model=HistoryPage)
@@ -300,7 +223,8 @@ def create_app(data_dir=None, config_path=None, adapter_factory=create_adapter):
             draw.rectangle(d['bbox_xyxy'], outline=color, width=max(2, image.width//300))
             draw.text((d['bbox_xyxy'][0], max(0, d['bbox_xyxy'][1]-12)),
                       f"{d['class_name']} {d['confidence']:.2f}", fill=color)
-        label = f"{'SIMULATED | ' if result['is_mock'] else ''}{model_id} | {result['model']['version']}"
+        prefix = 'SIMULATED | ' if result['is_mock'] else 'VLM ZERO-SHOT | ' if result['model'].get('method') == 'vlm' else ''
+        label = f"{prefix}{model_id} | {result['model']['version']}"
         draw.rectangle((0, 0, image.width, 22), fill='#102c36')
         draw.text((5, 5), label, fill='white')
         output = io.BytesIO()
@@ -308,16 +232,13 @@ def create_app(data_dir=None, config_path=None, adapter_factory=create_adapter):
         return Response(output.getvalue(), media_type='image/png',
                         headers={'Content-Disposition': f'attachment; filename="{job_id}-{model_id}.png"'})
 
-    @app.post('/api/v1/analyze', response_model=AnalyzeResponse)
+    @app.post('/api/v1/analyze', response_model=AnalyzeResponse, deprecated=True)
     def analyze(body: AnalyzeRequest):
         s = service()
         with s.Session() as db:
             if not db.get(ImageRow, body.image_id):
                 raise HTTPException(404, '图片不存在')
-        with Image.open(s.path(body.image_id)) as source:
-            image = ImageOps.exif_transpose(source).convert('RGB')
-        detections = [d.model_dump() for d in body.detections]
-        return app.state.analyzer.analyze(image, detections)
+        return {'enabled': False, 'message': '此接口已停用，请通过 /api/v1/inferences 选择 VLM 零样本检测模型；结果会持久化。'}
 
     return app
 

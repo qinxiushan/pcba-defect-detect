@@ -1,41 +1,48 @@
 # PCB Insight · PCB 缺陷检测展示系统
 
-已集成 YOLOv11、YOLOv12、YOLO26 模型配置及可选 Qwen-VL 分析，交付范围和待验收事项见 [分支集成记录](docs/branch-integration.md)，分析接口配置见 [模型接入指南](docs/model-integration.md)。
+服务器自动发布：配置 [GitHub Actions CI/CD](docs/ci-cd.md) 后，main 分支测试通过即自动部署，健康检查失败回退。
+
+已集成四个 YOLO 模型配置及独立的 [VLM 零样本检测](docs/vlm-detection.md)。VLM 直接读取原图，检测框和判断说明保存至数据库，可在历史记录中恢复。
 
 供团队共享的 React + FastAPI 推理展示系统。统一图片输入和检测结果协议，让不同成员的模型通过适配器接入同一套界面。
 
-本次共享内容为前后端系统和接入文档，**不包含训练代码、数据集、日志或模型权重**。默认目录仅展示四位成员的真实模型，不再注册演示模型。
+本次共享内容为前后端系统和接入文档，**不包含训练代码、数据集、日志或模型权重**。默认目录包含四位成员的 YOLO 模型和一个云端 VLM，不注册演示模型。
 
 ## 功能与架构
 
-- 单图上传、置信度阈值、多模型串行推理与并排对比。
+- 单图上传、置信度阈值、模型常驻与有限并行推理，YOLO 和云端 VLM 独立调度、并排对比。
 - 检测框缩放和显隐、类别统计、模型版本与耗时展示。
 - SQLite 本地历史、JSON 和带框 PNG 导出。
 - 模拟适配器与真实 Ultralytics YOLO 适配器，默认 CPU 推理。
 
 前端使用 React、TypeScript、Vite、Ant Design 和 TanStack Query；后端使用 Python 3.11、FastAPI、Pydantic、SQLAlchemy 和 uv。前端通过 `/api/v1` 调用统一业务接口，模型特有的加载、预处理、后处理与类别映射由适配器负责。
 
-## 克隆后启动：无需权重
+## 启动当前版本（YOLO＋VLM）
 
 准备 Node.js 22 LTS、npm 和 uv，在仓库根目录分别打开两个终端。
+
+以下为 Windows PowerShell 命令；使用 `npm.cmd` 避免 npm.ps1 执行策略限制，macOS/Linux 使用 `npm`。每个带 `cd backend` 或 `cd frontend` 的独立代码块从仓库根目录开始，已经在目标目录时不要重复切换。
+
+VLM 密钥填写在仓库根目录 `.env` 或 `backend/.env` 的 `QWEN_API_KEY`，不需要写进启动命令。YOLO 需要对应本地权重；VLM 无需 YOLO 权重。
 
 后端：
 
 ```powershell
 cd backend
-uv sync --locked --python 3.11
-uv run uvicorn app.main:app --host 127.0.0.1 --port 8000
+uv sync --locked --python 3.11 --extra yolo --extra qwen
+$env:PCB_MODELS_CONFIG = (Resolve-Path models.json).Path
+uv run --extra yolo --extra qwen uvicorn app.main:app --host 127.0.0.1 --port 8000
 ```
 
 前端：
 
 ```powershell
 cd frontend
-npm ci
-npm run dev -- --host 127.0.0.1
+npm.cmd ci
+npm.cmd run dev -- --host 127.0.0.1
 ```
 
-访问 http://127.0.0.1:5173 。缺少权重或推理依赖时，API 仍可启动，模型显示“未就绪”；实际检测需先准备对应权重。模拟适配器仅保留用于自动测试和显式开发配置。
+访问 http://127.0.0.1:5173 。缺少权重或密钥时 API 仍可启动，对应模型显示“未就绪”；YOLO 检测需准备权重，VLM 检测需有效云端密钥。模拟适配器仅保留用于自动测试和显式开发配置。
 
 接口文档：http://127.0.0.1:8000/docs 。前端的 `/api` 由 Vite 转发至本机 8000 端口，无需直接跨域访问。
 
@@ -47,8 +54,8 @@ npm run dev -- --host 127.0.0.1
 
 ```powershell
 cd backend
-uv sync --locked --extra yolo
-uv run --extra yolo uvicorn app.main:app --host 127.0.0.1 --port 8000
+uv sync --locked --python 3.11 --extra yolo --extra qwen
+uv run --extra yolo --extra qwen uvicorn app.main:app --host 127.0.0.1 --port 8000
 ```
 
 4. 刷新页面、选择真实模型，用成员提供的样例图验证，并确认结果的 `is_mock=false`。
@@ -78,23 +85,32 @@ uv run --extra yolo uvicorn app.main:app --host 127.0.0.1 --port 8000
 
 ```powershell
 cd backend
-uv run pytest -q
+uv run --extra yolo --extra qwen pytest -q
 ```
 
-已经启用真实推理环境时，改用 `uv run --extra yolo pytest -q`，避免 uv 同步时移除可选依赖。
+后续同步、启动、测试都保留 `--extra yolo --extra qwen`，避免 uv 同步时移除可选依赖。
 
 ```powershell
 cd frontend
-npm test
-npm run build
+npm.cmd test
+npm.cmd run build
 ```
 
-本地已通过 9 项后端测试、2 项前端组件测试和生产构建；真实基线完成了六类图片的 HTTP 推理与导出验证，见 [真实模型验证报告](docs/real-model-validation.md)。这不代表所有成员模型都已兼容，也不代表完整测试集准确率。
+当前改造已通过 27 项后端测试、3 项前端组件测试和生产构建。VLM 真实调用及持久化验证的结果与限制见 [VLM 检测说明](docs/vlm-detection.md)；旧基线报告保留于 [真实模型验证报告](docs/real-model-validation.md)，不代表当前所有模型的准确率。
+
+真实 VLM 单图验证（先自备 `backend/weights/sample_pcb.jpg`；会向云端发送图片并产生费用）：
+
+```powershell
+cd backend
+uv run --extra yolo --extra qwen python scripts/verify_vlm.py --image weights/sample_pcb.jpg
+```
+
+脚本无需另起 FastAPI，使用隔离数据库，不会在默认工作台历史中新增记录。
 
 ## 使用边界
 
 - 面向本机或受信任的局域网，没有账号与权限系统。
-- 每个数据目录仅由一个 Uvicorn worker 管理，最多 20 个未结束任务，推理串行执行。
+- 每个数据目录仅由一个 Uvicorn worker 管理，最多 20 个未结束任务。本地默认一个推理槽位，VLM 默认两个独立槽位；模型首次加载后常驻。服务器部署、共享密码和并发验收见 [演示部署](docs/demo-deployment.md)。
 - 不包含在线训练、视频、批量推理或完整准确率评估。
 - 图片限制为 JPEG/PNG、10 MB、2500 万像素；未检出缺陷不等同于产品合格。
 

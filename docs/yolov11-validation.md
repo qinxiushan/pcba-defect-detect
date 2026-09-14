@@ -1,5 +1,7 @@
 # YOLOv11n 模型接入验证
 
+> 历史验证数值保留用于追溯；操作命令已更新为当前 CPU＋VLM 环境。原仓库样例图已删除，请先自备 `backend/weights/sample_pcb.jpg`。默认目录已移除模拟模型，旧 `acceptance_test.py` 不适用于当前配置。
+
 > 以下为成员在 2026-09-09 原环境的验证记录，并非当前目标环境验收。合入共享系统后模型名称为 `PCB YOLOv11n · 真实模型`，默认使用 CPU；GPU 配置需在目标环境单独验证。
 
 验证日期：2026-09-09。**当前运行的 FastAPI 已接入真实 YOLOv11n PCB 缺陷检测模型，HTTP 验证全部通过。**
@@ -72,19 +74,19 @@ HTTP API 推理（GPU，与 mock 模型对比）：
 ## 直接使用
 
 1. 刷新 http://127.0.0.1:5173 。
-2. 在工作台勾选 **我的模型 · YOLOv11n（GPU）**，上传图片并开始检测。
-3. 在"检测历史"查看结果。原来的两个演示模型仍标注"模拟"。
+2. 在工作台勾选 **PCB YOLOv11n**，上传图片并开始检测。
+3. 在"检测历史"查看结果。默认目录已移除演示模型，旧历史记录仍保留模拟标记。
 
-重复验证命令（服务启动后，在 `backend/` 目录运行）：
+当前 HTTP 冒烟验证命令（需本地 `clean-v2/test` 六类样本集；服务启动后，在 `backend/` 目录运行，不复现上方旧脚本所有断言）：
 
 ```powershell
-python scripts/acceptance_test.py
+uv run --extra yolo --extra qwen python scripts/verify_live.py --url http://127.0.0.1:8000/api/v1 --model member-yolov11 --dataset ../pcb-defect-dataset/clean-v2/test
 ```
 
 独立加载验证（不依赖后端，在 `backend/` 目录运行）：
 
 ```powershell
-python scripts/verify_yolo.py --weights weights/member-yolov11n-20260908.pt --image ../docs/assets/yolov11-sample.jpg
+uv run --extra yolo --extra qwen python scripts/verify_yolo.py --weights weights/pcb-yolov11n-20260908.pt --image weights/sample_pcb.jpg
 ```
 
 这是接入与功能冒烟测试，没有计算完整测试集 mAP（训练阶段已计算），也没有据此宣称模型准确率达标。

@@ -2,8 +2,8 @@ import { useEffect, useState } from 'react'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { Alert, App as AntApp, Button, Card, Checkbox, Empty, Progress, Select, Slider, Space, Spin, Switch, Table, Tag, Upload, Popconfirm } from 'antd'
 import { AppstoreOutlined, ArrowRightOutlined, CheckCircleOutlined, CloudUploadOutlined, DownloadOutlined, ExperimentOutlined, HistoryOutlined, ScanOutlined } from '@ant-design/icons'
-import { api, analyze, colors, exportUrl, labels, statusLabels, terminal } from './api'
-import type { Job, Model, Result, UploadedImage } from './api'
+import { api, colors, exportUrl, labels, statusLabels, terminal } from './api'
+import type { HealthInfo, Job, Model, Result, UploadedImage } from './api'
 
 function ImageCanvas({image, result, showBoxes = true}: {image: UploadedImage; result?: Result; showBoxes?: boolean}) {
   const [zoom, setZoom] = useState(100)
@@ -19,34 +19,24 @@ function ImageCanvas({image, result, showBoxes = true}: {image: UploadedImage; r
 
 function ResultCard({job, result, showBoxes}: {job: Job; result: Result; showBoxes: boolean}) {
   const done = result.status === 'succeeded'
-  const [analysis, setAnalysis] = useState<string | null>(null)
-  const [analyzing, setAnalyzing] = useState(false)
-  const {message} = AntApp.useApp()
-  const runAnalysis = async () => {
-    setAnalyzing(true)
-    try {
-      const res = await analyze(job.image.id, result.detections)
-      if (res.error) { message.error(res.error); setAnalysis(res.analysis || null) }
-      else if (!res.enabled) { message.warning(res.message || 'AI 分析不可用'); setAnalysis(null) }
-      else setAnalysis(res.analysis)
-    } catch (e) { message.error((e as Error).message) }
-    finally { setAnalyzing(false) }
-  }
+  const isVlm = result.model.method === 'vlm'
+  const assessmentLabels = {suspected_defects:'疑似缺陷，需复核', no_visible_defects:'未发现可见缺陷，不代表合格', uncertain:'无法确定，需人工复核'}
   return <Card className="result-card" title={<Space>{result.model.name}{result.is_mock && <Tag color="gold">模拟结果</Tag>}</Space>} extra={<Tag color={done ? 'green' : result.status==='failed' ? 'red' : 'blue'}>{statusLabels[result.status]}</Tag>}>
     <div className="result-meta"><span>{result.model.version} · {result.model.device.toUpperCase()}</span><span>{result.model.author}</span></div>
     <ImageCanvas image={job.image} result={result} showBoxes={showBoxes}/>
+    {isVlm && <Alert type="info" message="零样本检测：仅根据原图判断；分数为模型自评，不能与 YOLO 置信度直接比较。"/>}
+    {result.vlm && <div className="ai-analysis"><h4>{assessmentLabels[result.vlm.assessment]}</h4><p style={{whiteSpace:'pre-wrap'}}>{result.vlm.summary}</p><p>返回 {result.vlm.reported_count} 个候选，当前阈值保留 {result.vlm.retained_count} 个。结果已保存至检测历史。</p></div>}
     {result.error && <Alert type="error" message={result.error} showIcon/>}
-    {!terminal(result.status) && <div className="waiting"><Spin size="small"/> {result.status === 'queued' ? '等待串行执行' : '模型正在推理…'}</div>}
+    {!terminal(result.status) && <div className="waiting"><Spin size="small"/> {result.status === 'queued' ? (isVlm ? '等待云端分析' : '等待本地推理') : '模型正在推理…'}</div>}
     {done && <><div className="result-stats"><div><strong>{result.detections.length}</strong><span>检出缺陷</span></div><div><strong>{result.inference_ms?.toFixed(1)}<small> ms</small></strong><span>推理耗时</span></div><div><strong>{result.load_ms?.toFixed(1)}<small> ms</small></strong><span>加载耗时</span></div></div>
       <div className="class-summary">{labels.map((name, id) => <Tag key={name} color={colors[id]}>{name} {result.detections.filter(d => d.class_id===id).length}</Tag>)}</div>
-      {result.detections.length === 0 ? <Empty image={Empty.PRESENTED_IMAGE_SIMPLE} description="未检出缺陷"/> : <Table size="small" pagination={false} rowKey="key" dataSource={result.detections.map((d,i)=>({...d,key:i}))} columns={[
+      {result.detections.length === 0 ? <Empty image={Empty.PRESENTED_IMAGE_SIMPLE} description={isVlm ? '当前阈值下无定位框，请结合上方判断查看' : '未检出缺陷'}/> : <Table size="small" pagination={false} rowKey="key" dataSource={result.detections.map((d,i)=>({...d,key:i}))} columns={[
         {title:'缺陷类别', dataIndex:'class_id', render: (id:number)=><span><i className="class-dot" style={{background:colors[id]}}/>{labels[id]}</span>},
-        {title:'置信度', dataIndex:'confidence', render:(c:number)=>`${(c*100).toFixed(1)}%`},
+        {title:isVlm?'模型自评分':'置信度', dataIndex:'confidence', render:(c:number)=>`${(c*100).toFixed(1)}%`},
         {title:'坐标 (xyxy)', dataIndex:'bbox_xyxy', render:(box:number[]) => <span className="coordinates">{box.map(Math.round).join(', ')}</span>},
+        ...(isVlm ? [{title:'观察依据', dataIndex:'reason'}] : []),
       ]}/>}
       <Button className="export-button" icon={<DownloadOutlined/>} href={exportUrl(job.id,result.model.id)} disabled={!terminal(job.status)}>下载带框图片</Button>
-      {!result.is_mock && <Button className="analyze-button" icon={<ExperimentOutlined/>} loading={analyzing} onClick={runAnalysis}>AI 分析缺陷</Button>}
-      {analysis && <div className="ai-analysis"><h4>AI 分析结果</h4><p style={{whiteSpace:'pre-wrap'}}>{analysis}</p></div>}
     </>}
   </Card>
 }
@@ -71,7 +61,7 @@ export default function App() {
   const {message} = AntApp.useApp()
   const client = useQueryClient()
   const models = useQuery({queryKey:['models'],queryFn:()=>api<Model[]>('/models')})
-  const health = useQuery({queryKey:['health'],queryFn:()=>api<{worker_alive:boolean}>('/health'),refetchInterval:10000})
+  const health = useQuery({queryKey:['health'],queryFn:()=>api<HealthInfo>('/health'),refetchInterval:10000})
   const job = useQuery({queryKey:['job',jobId], queryFn:()=>api<Job>(`/inferences/${jobId}`),enabled:!!jobId,
     refetchInterval:q=>q.state.data && terminal(q.state.data.status) ? false : q.state.error ? false : 1000})
   const history = useQuery({queryKey:['history',historyPage],queryFn:()=>api<{items:Job[];total:number}>(`/inferences?page=${historyPage}`),enabled:page==='history',refetchInterval:page==='history'?3000:false})
@@ -87,6 +77,7 @@ export default function App() {
     <div className="main"><header><span>工作空间 <span className="slash">/</span> {nav.find(n=>n.id===page)?.label}</span><Space><span className={`status-dot ${health.data?.worker_alive?'online':''}`}/>{health.data?.worker_alive?'服务已连接':'服务连接中断'}<span className="avatar">PCB</span></Space></header>
       <main><div className="page-heading"><div><div className="eyebrow">PCB DEFECT INSPECTION</div><h1>{page==='workbench'?'从一张图片，洞察每一处缺陷':page==='models'?'团队模型，统一接入': '每一次检测，都有迹可循'}</h1><p>{page==='workbench'?'上传电路板图片，选择模型，直观比较不同模型的检测结果。':page==='models'?'查看模型版本与运行状态，通过适配器连接不同成员的训练成果。':'回看检测结果，追溯模型版本，导出可分享的记录。'}</p></div><Tag className="workspace-tag">团队演示工作区</Tag></div>
       {health.isError && <Alert type="error" showIcon message="无法连接后端，请确认 FastAPI 已在 8000 端口启动。"/>}
+      {page==='workbench' && selected.some(id=>models.data?.find(m=>m.id===id)?.method==='vlm') && <Alert type="info" showIcon message="已选择云端 VLM：开始检测后会将原图发送至阿里云并产生 API 调用；不发送其他模型的结果。检测框与说明会保存到历史记录。"/>}
       {models.isError && <Alert type="error" message={models.error.message} action={<Button onClick={()=>models.refetch()}>重试</Button>}/>}
       {page==='workbench' && <><div className="workflow"><span><b>01</b> 上传图片</span><ArrowRightOutlined/><span><b>02</b> 选择模型</span><ArrowRightOutlined/><span><b>03</b> 查看与对比</span></div><div className="input-grid"><Card title={<><span className="step-number">01</span> 检测图片</>} extra={<span className="muted">JPEG / PNG</span>}>
         <Upload.Dragger accept="image/jpeg,image/png" showUploadList={false} disabled={upload.isPending || active} beforeUpload={file=>{if(file.size>10*1024*1024){message.error('图片不能超过 10 MB');return false}upload.mutate(file);return false}}>
@@ -107,6 +98,6 @@ export default function App() {
         {title:'状态',dataIndex:'status',render:(status:Job['status'])=>statusLabels[status]},
         {title:'操作',render:(_,j:Job)=><Space><Button size="small" onClick={()=>{setJobId(j.id);setPage('workbench');setImage(j.image);setConfidence(j.confidence);setSelected(j.results.map(r=>r.model.id).filter(id=>models.data?.some(m=>m.id===id&&m.available)))}}>查看</Button><Popconfirm title="删除该记录及无引用图片？" onConfirm={()=>remove.mutate(j.id)}><Button size="small" danger disabled={!terminal(j.status)} loading={remove.isPending && remove.variables===j.id}>删除</Button></Popconfirm></Space>},
       ]}/></Card>}
-      <footer>PCB Insight <span>统一协议 · 多模型对比 · 本地记录</span></footer></main>
+      <Alert type="info" message="共享演示环境，请勿上传敏感图片。图片和检测历史对所有体验者可见。"/><footer>PCB Insight <span>统一协议 · 多模型对比 · 本地记录</span></footer></main>
     </div></div>
 }

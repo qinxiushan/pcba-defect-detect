@@ -1,0 +1,2 @@
+# Install root:root mode 0440 into /etc/sudoers.d/pcb-deploy; validate with visudo.
+pcb-deploy ALL=(root) NOPASSWD: /usr/bin/systemctl restart pcb, /usr/bin/systemctl stop pcb

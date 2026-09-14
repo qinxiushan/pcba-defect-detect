@@ -38,5 +38,15 @@
     "adapter": "yolo",
     "device": "cpu",
     "weights": "weights/pcb-yolov26n-20260911.pt"
+  },
+  {
+    "id": "pcb-qwen-vlm",
+    "name": "Qwen VLM · 零样本检测",
+    "version": "qwen3-vl-plus-pcb-v1",
+    "author": "Qwen",
+    "description": "直接读取原图，独立判断六类缺陷并定位，不使用 YOLO 结果。图片发送至阿里云；分数为模型自评，结果需复核。",
+    "adapter": "vlm",
+    "device": "cloud",
+    "provider_model": "qwen3-vl-plus"
   }
 ]
