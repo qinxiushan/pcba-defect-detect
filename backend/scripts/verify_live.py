@@ -14,7 +14,7 @@ CLASSES = ['mouse_bite', 'spur', 'missing_hole', 'short', 'open_circuit', 'spuri
 def main():
     parser = argparse.ArgumentParser()
     parser.add_argument('--url', default='http://127.0.0.1:5173/api/v1')
-    parser.add_argument('--model', default='pcb-yolov8s-baseline')
+    parser.add_argument('--model', default='pcb-yolo26n-baseline')
     parser.add_argument('--dataset', type=Path, default=Path('../pcb-defect-dataset/test'))
     parser.add_argument('--output', type=Path, default=Path('data/real-model-verification'))
     args = parser.parse_args()
