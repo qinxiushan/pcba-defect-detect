@@ -46,6 +46,5 @@ dist/
 .DS_Store
 Thumbs.db
 
-docs/
 scripts/generate_report_reference_style.py
 scripts/generate_report_docx.py
