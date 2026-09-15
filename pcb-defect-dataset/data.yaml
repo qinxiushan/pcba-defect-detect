@@ -1,4 +1,4 @@
-path: C:/Users/LINPU/Desktop/YOLO_26/pcb-defect-dataset
+path: pcb-defect-dataset
 train: train
 val: val
 test: test
