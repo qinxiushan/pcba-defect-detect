@@ -32,12 +32,16 @@
     "validation": "2026-09-12, target backend CPU, one real image via API; not full acceptance or accuracy evaluation."
   },
   "pcb-yolo26n-baseline": {
-    "version": "20260911",
-    "file": "weights/pcb-yolov26n-20260911.pt",
+    "version": "20260912",
+    "file": "weights/pcb-yolov26n-20260912.pt",
     "author": "林朴",
-    "source": null,
-    "sha256": null,
-    "size_bytes": null,
-    "status": "pending_delivery"
+    "source": "best.pt",
+    "sha256": "c9807e257f4a3ca57a1230dcdb89f46164dc598af435b0a844618b9c39b76ce9",
+    "size_bytes": 5402181,
+    "status": "local_api_smoke_passed",
+    "checkpoint_date": "2026-09-12T04:46:36.654491+08:00",
+    "checkpoint_ultralytics_version": "8.4.144",
+    "validation": "2026-09-15 Windows CPU, Ultralytics 8.4.143: one real image through API succeeded with 0 detections; JSON export matched. Server validation and accuracy evaluation remain outstanding.",
+    "evidence": "backend/data/model-verification-20260915/9dc6792e060b4d1eb046e8b7da8cd53e/result.json"
   }
 }

@@ -32,12 +32,12 @@
   {
     "id": "pcb-yolo26n-baseline",
     "name": "PCB YOLOv26n",
-    "version": "20260911",
+    "version": "20260912",
     "author": "林朴",
-    "description": "PCB 六类缺陷检测，50 轮训练基线，权重待交付。",
+    "description": "PCB 六类缺陷检测，林朴同学交付的 YOLO26n 最佳权重。",
     "adapter": "yolo",
     "device": "cpu",
-    "weights": "weights/pcb-yolov26n-20260911.pt"
+    "weights": "weights/pcb-yolov26n-20260912.pt"
   },
   {
     "id": "pcb-qwen-vlm",
