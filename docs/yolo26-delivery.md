@@ -87,6 +87,12 @@ python scripts\validate_detect.py
 
 后端使用 `YoloAdapter` 加载 Ultralytics 权重，输出系统统一的类别、置信度和原图像素坐标 `bbox_xyxy`。模型结果的 `is_mock` 应为 `false`。
 
-> 接入注意：当前 ultralytics 版本下，`model.predict` 直接接收 PIL 图像或文件路径时，YOLO26 的类别
-> 置信度会异常塌陷（恒为 0 检测框）。`YoloAdapter.predict` 已将 PIL 图像转为 HWC RGB `ndarray`
-> （`np.asarray(image)`）后再调用 predict，接入方无需额外处理。
+> 接入注意：ultralytics `model.predict` 的 ndarray 输入契约是 **HWC BGR uint8**（preprocess 内部
+> flip 通道转 RGB，见 predictor.py “BGR to RGB”）。`YoloAdapter.predict` 会把上游传入的 PIL RGB
+> 图像转成连续内存的 BGR `ndarray`（`np.asarray(image)[:, :, ::-1]`）后再推理。直接传 RGB 数组会让
+> 模型实际收到 BGR，虽然部分简单样本仍可出框，但实测会产生大量错误检测。接入方只需提供 EXIF 校正后的
+> RGB PIL 图像，通道转换由适配器完成。
+>
+> 数据集备注：test 集中有 239 张图片的标注文件沿用旧版 `_256.txt` 后缀（与 `_600.jpg` 图片 stem
+> 不匹配），ultralytics 训练和 val 会将其视为无标注背景，本文 mAP 指标按官方配对（829 个
+> `_600.txt`）统计。若要利用这批样本，需先在数据集中补全同名 `_600.txt` 标注后重训。

@@ -60,10 +60,12 @@ class YoloAdapter:
     def predict(self, image, confidence):
         import numpy as np
 
-        # YOLO26 在当前 ultralytics 版本下，predict 直接接收 PIL 图像或文件路径时类别置信度会
-        # 异常塌陷（恒为 0 检测框）；实测传入 HWC RGB ndarray 结果正常（同权重 val mAP50≈0.99）。
-        rgb = np.asarray(image)
-        result = self.model.predict(rgb, conf=confidence, device=self.config.device, verbose=False)[0]
+        # ultralytics predict 的 ndarray 契约是 HWC BGR uint8（preprocess 内部会 flip 通道转 RGB，
+        # 见 predictor.py “BGR to RGB”）。直接传 PIL 的 RGB 数组会让模型实际收到 BGR，实测在本权重
+        # 上造成大量背景误检（239 张无标注图中 145 张出假框）；转成连续内存的 BGR 后与训练/val
+        # 通路一致（test 827/829 图像级命中、背景 0 误检）。
+        bgr = np.ascontiguousarray(np.asarray(image)[:, :, ::-1])
+        result = self.model.predict(bgr, conf=confidence, device=self.config.device, verbose=False)[0]
         detections = []
         if result.boxes is None:
             return detections
