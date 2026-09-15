@@ -58,7 +58,12 @@ class YoloAdapter:
         self.model = YOLO(self.config.weights)
 
     def predict(self, image, confidence):
-        result = self.model.predict(image, conf=confidence, device=self.config.device, verbose=False)[0]
+        import numpy as np
+
+        # YOLO26 在当前 ultralytics 版本下，predict 直接接收 PIL 图像或文件路径时类别置信度会
+        # 异常塌陷（恒为 0 检测框）；实测传入 HWC RGB ndarray 结果正常（同权重 val mAP50≈0.99）。
+        rgb = np.asarray(image)
+        result = self.model.predict(rgb, conf=confidence, device=self.config.device, verbose=False)[0]
         detections = []
         if result.boxes is None:
             return detections
